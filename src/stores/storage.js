@@ -7,12 +7,12 @@ const STORAGE_KEY = 'daily-ascent-genshin-data'
 
 // 默认初始数据
 export const defaultData = {
-  exp: 120, // 初始经验
-  streak: 0, // 当前连续打卡天数
-  maxStreak: 0, // 历史最高连击
-  selectedCharacter: 'aether', // 默认立绘：aether | venti | custom
+  exp: 170, // 初始经验 (Lv.2 70/100 EXP)
+  streak: 1, // 当前连续打卡天数
+  maxStreak: 1, // 历史最高连击
+  selectedCharacter: 'venti', // 默认立绘：venti | aether | custom
   characterCustomImg: '', // 用户自定义立绘 Base64
-  characterTitle: '旅行者', // 称号
+  characterTitle: '温迪', // 称号
   logs: [] // 打卡历史流水 [{ id, date, time, exp, note }]
 }
 

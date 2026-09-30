@@ -3,14 +3,22 @@
     <!-- 顶部 Toast 消息通知 -->
     <ToastNotify ref="toastRef" />
 
-    <!-- 顶部状态栏 -->
+    <!-- 顶部状态栏导航 -->
     <header class="app-top-bar">
       <div class="top-title-group">
         <span class="app-star-icon">✦</span>
-        <h1 class="app-title">每日打卡</h1>
+        <div class="title-text-stack">
+          <h1 class="app-title">每日打卡</h1>
+          <div class="app-subtitle">● DAILY CHECK-IN</div>
+        </div>
       </div>
+
       <div class="top-actions">
-        <!-- 切换立绘快捷键 -->
+        <!-- 打卡历程历史弹窗快捷入口 -->
+        <button class="top-icon-btn" title="查看打卡历程记录" @click="showLogsModal = true">
+          <span class="icon">📜</span>
+        </button>
+        <!-- 切换角色立绘快捷键 -->
         <button class="top-icon-btn" title="更换角色立绘" @click="showSettingsModal = true">
           <span class="icon">👤</span>
         </button>
@@ -21,34 +29,30 @@
       </div>
     </header>
 
-    <!-- 1. 顶部：角色立绘与召唤法阵（草图顶部框） -->
+    <!-- 1. 顶部：角色全景水镜立绘与属性牌 -->
     <CharacterStandee
       :character-type="state.selectedCharacter"
       :custom-img="state.characterCustomImg"
       :title="state.characterTitle"
+      :level="currentLevel"
       :is-checked-in="isCheckedInToday"
       @switch-character="showSettingsModal = true"
     />
 
-    <!-- 2. 中部：极简金色经验进度条（草图进度条） -->
+    <!-- 2. 中部：极细金色经验等阶进度条 -->
     <ExpProgressBar :exp="state.exp" />
 
-    <!-- 3. 中下部：核心金色日曜大圆打卡按钮（草图大圆） -->
+    <!-- 3. 中下部：核心命定星轨日冕打卡印章 -->
     <GoldenPunchButton
       :is-checked-in="isCheckedInToday"
       @checkin="handleStartCheckIn"
     />
 
-    <!-- 4. 底部：周签到状态与连击（草图底部椭圆区） -->
+    <!-- 4. 底部：周打卡原石星芒矩阵与连击追踪（集成历史记录查看入口） -->
     <WeeklyTracker
       :streak="currentStreak"
       :checked-dates="checkedDates"
-    />
-
-    <!-- 5. 底部：最近打卡记录流 -->
-    <CheckInLogs
-      :logs="state.logs"
-      @delete-log="handleDeleteLog"
+      @open-history="showLogsModal = true"
     />
 
     <!-- 打卡备注弹窗（选填 / 回车直达） -->
@@ -56,6 +60,16 @@
       :show="showNoteModal"
       @confirm="handleConfirmCheckIn"
       @close="showNoteModal = false"
+    />
+
+    <!-- 打卡历史记录独立模态框（响应用户首页轻量化需求） -->
+    <CheckInLogsModal
+      :show="showLogsModal"
+      :logs="state.logs"
+      :streak="currentStreak"
+      :max-streak="state.maxStreak || 0"
+      @delete-log="handleDeleteLog"
+      @close="showLogsModal = false"
     />
 
     <!-- 设置与数据管理弹窗 -->
@@ -84,7 +98,7 @@ import CharacterStandee from './components/CharacterStandee.vue'
 import ExpProgressBar from './components/ExpProgressBar.vue'
 import GoldenPunchButton from './components/GoldenPunchButton.vue'
 import WeeklyTracker from './components/WeeklyTracker.vue'
-import CheckInLogs from './components/CheckInLogs.vue'
+import CheckInLogsModal from './components/CheckInLogsModal.vue'
 import CheckInNoteModal from './components/CheckInNoteModal.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import ToastNotify from './components/ToastNotify.vue'
@@ -93,10 +107,14 @@ import ToastNotify from './components/ToastNotify.vue'
 const state = reactive(storage.get())
 const toastRef = ref(null)
 const showNoteModal = ref(false)
+const showLogsModal = ref(false)
 const showSettingsModal = ref(false)
 
 // 当前游戏日（05:00 切日）
 const todayStr = computed(() => getGameDate())
+
+// 当前等阶
+const currentLevel = computed(() => Math.floor(state.exp / 100) + 1)
 
 // 获取所有已打卡日期列表
 const checkedDates = computed(() => {
@@ -217,7 +235,8 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 4px 14px;
+  padding: 6px 4px 10px;
+  user-select: none;
 }
 
 .top-title-group {
@@ -227,16 +246,33 @@ onMounted(() => {
 }
 
 .app-star-icon {
-  color: #f3d882;
-  font-size: 16px;
-  filter: drop-shadow(0 0 6px rgba(243, 216, 130, 0.7));
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.9)) drop-shadow(0 0 12px rgba(94, 234, 212, 0.6));
+}
+
+.title-text-stack {
+  display: flex;
+  flex-direction: column;
 }
 
 .app-title {
-  font-size: 18px;
+  font-size: 19px;
   font-weight: 700;
-  color: #f7f7f8;
+  color: #ffffff;
   letter-spacing: 1px;
+  line-height: 1.1;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  font-family: "Source Han Serif CN", Georgia, serif, sans-serif;
+}
+
+.app-subtitle {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 2px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
 .top-actions {
@@ -245,26 +281,28 @@ onMounted(() => {
 }
 
 .top-icon-btn {
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background: rgba(25, 34, 58, 0.6);
-  border: 1px solid rgba(243, 216, 130, 0.3);
+  background: rgba(20, 36, 72, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.2s ease;
-  backdrop-filter: blur(8px);
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .top-icon-btn:hover {
-  background: rgba(40, 52, 85, 0.85);
-  border-color: rgba(243, 216, 130, 0.6);
-  transform: translateY(-1px);
+  background: rgba(35, 60, 115, 0.75);
+  border-color: rgba(243, 216, 130, 0.7);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 6px 16px rgba(243, 216, 130, 0.3);
 }
 
 .top-icon-btn .icon {
-  font-size: 15px;
+  font-size: 16px;
 }
 </style>

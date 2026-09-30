@@ -1,14 +1,31 @@
 <template>
   <div class="weekly-card">
+    <!-- 卡片顶部信息行 -->
     <div class="weekly-header">
-      <span class="streak-text">
-        <span class="fire-icon">🔥</span>
-        已连续签到 <span class="streak-number">{{ streak }}</span> 天
-      </span>
-      <span class="today-tag">今日 ✦ {{ todayShort }}</span>
+      <div class="streak-title">
+        <span class="header-star">✦</span>
+        <span>已连续签到 <strong class="streak-num">{{ streak }}</strong> 天</span>
+      </div>
+
+      <div class="header-right">
+        <!-- 今日日期标签 -->
+        <span class="today-badge">
+          <span class="cal-icon">📅</span>
+          今日 {{ todayShort }}
+        </span>
+        <!-- 查看历史记录快捷按钮（响应用户首页轻量化需求） -->
+        <button
+          class="history-quick-btn"
+          title="查看完整打卡历史记录"
+          @click="$emit('open-history')"
+        >
+          <span>记录</span>
+          <span class="arrow">&gt;</span>
+        </button>
+      </div>
     </div>
 
-    <!-- 7 天打卡圆环列表 -->
+    <!-- 7 天打卡状态行 -->
     <div class="days-row">
       <div
         v-for="day in weekDays"
@@ -19,17 +36,28 @@
           'is-checked': checkedDates.includes(day.dateStr)
         }"
       >
+        <!-- 星期几简称 -->
         <span class="day-name">{{ day.name }}</span>
 
-        <div class="day-circle">
-          <!-- 已签到：金色星芒勾 -->
-          <span v-if="checkedDates.includes(day.dateStr)" class="check-icon">✦</span>
-          <!-- 当天未签到：柔和脉动圆点 -->
-          <span v-else-if="day.dateStr === todayDate" class="today-dot" />
-          <!-- 其他未签到日期 -->
-          <span v-else class="empty-dash">·</span>
+        <!-- 签到徽章 -->
+        <div class="day-badge-wrap">
+          <!-- 已签到：温润金色原石星芒徽章 -->
+          <div v-if="checkedDates.includes(day.dateStr)" class="badge-checked">
+            <span class="primogem-star">✦</span>
+          </div>
+
+          <!-- 今天且尚未打卡：金圈微光高亮 -->
+          <div v-else-if="day.dateStr === todayDate" class="badge-today-pending">
+            <span class="primogem-star pending-star">✦</span>
+          </div>
+
+          <!-- 普通未打卡日期：深邃淡蓝星芒 -->
+          <div v-else class="badge-normal">
+            <span class="primogem-star dim-star">✦</span>
+          </div>
         </div>
 
+        <!-- 日期号数 -->
         <span class="day-num">{{ day.dayNum }}</span>
       </div>
     </div>
@@ -45,6 +73,8 @@ const props = defineProps({
   checkedDates: { type: Array, default: () => [] }
 })
 
+defineEmits(['open-history'])
+
 const todayDate = computed(() => getGameDate())
 const weekDays = computed(() => getCurrentWeekDays())
 
@@ -58,13 +88,13 @@ const todayShort = computed(() => {
 .weekly-card {
   width: 100%;
   max-width: 400px;
-  margin: 0 auto 16px;
-  padding: 14px 16px;
-  background: rgba(18, 24, 42, 0.65);
-  border: 1px solid rgba(243, 216, 130, 0.25);
+  margin: 6px auto 24px;
+  padding: 14px 16px 16px;
+  background: rgba(14, 25, 52, 0.72);
+  border: 1px solid rgba(160, 200, 255, 0.22);
   border-radius: 16px;
   backdrop-filter: blur(16px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
   user-select: none;
 }
 
@@ -72,38 +102,80 @@ const todayShort = computed(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 12px;
-  font-size: 13px;
+  margin-bottom: 14px;
 }
 
-.streak-text {
-  color: #f7f7f8;
-  font-weight: 500;
+.streak-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+}
+
+.header-star {
+  color: #f3d882;
+  font-size: 15px;
+  filter: drop-shadow(0 0 6px rgba(243, 216, 130, 0.8));
+}
+
+.streak-num {
+  color: #f3d882;
+  font-size: 16px;
+  font-weight: 800;
+  margin: 0 2px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.today-badge {
+  font-size: 11px;
+  color: #a4bede;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 3px 9px;
+  border-radius: 12px;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.fire-icon {
-  font-size: 14px;
+.cal-icon {
+  font-size: 11px;
 }
 
-.streak-number {
+.history-quick-btn {
+  background: rgba(243, 216, 130, 0.12);
+  border: 1px solid rgba(243, 216, 130, 0.3);
+  border-radius: 12px;
   color: #f3d882;
-  font-weight: 700;
-  font-size: 16px;
-  margin: 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  transition: all 0.2s ease;
 }
 
-.today-tag {
-  font-size: 12px;
-  color: #9ba8c2;
-  background: rgba(255, 255, 255, 0.05);
-  padding: 2px 8px;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+.history-quick-btn:hover {
+  background: rgba(243, 216, 130, 0.24);
+  border-color: rgba(243, 216, 130, 0.6);
+  transform: translateY(-1px);
 }
 
+.history-quick-btn .arrow {
+  font-size: 10px;
+}
+
+/* 7天展示网格 */
 .days-row {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -115,68 +187,88 @@ const todayShort = computed(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
 .day-name {
   font-size: 11px;
-  color: #8392af;
+  color: #8da2c0;
   font-weight: 500;
 }
 
-.day-circle {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(25, 34, 58, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+/* 徽章容器 */
+.day-badge-wrap {
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.25s ease;
 }
 
-/* 已打卡圆球：金色发光 */
-.day-col.is-checked .day-circle {
-  background: radial-gradient(circle, #f3d882 0%, #c9932d 100%);
-  border-color: #ffe699;
-  box-shadow: 0 0 10px rgba(243, 216, 130, 0.6);
-}
-
-.check-icon {
-  color: #3b2203;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-/* 今日（未打卡）：高亮金边脉冲 */
-.day-col.is-today:not(.is-checked) .day-circle {
-  border-color: #f3d882;
-  box-shadow: 0 0 8px rgba(243, 216, 130, 0.45);
-  background: rgba(45, 56, 88, 0.7);
-}
-
-.today-dot {
-  width: 6px;
-  height: 6px;
+/* 已打卡金色星芒徽章 */
+.badge-checked {
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: #f3d882;
-  box-shadow: 0 0 6px #f3d882;
+  background: radial-gradient(circle, #f5d47a 0%, #d4a340 70%, #996e1a 100%);
+  border: 1.5px solid #fff5cc;
+  box-shadow: 0 0 12px rgba(245, 212, 122, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.empty-dash {
-  color: rgba(131, 146, 175, 0.4);
-  font-size: 14px;
+.badge-checked .primogem-star {
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 900;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+}
+
+/* 当天未签到 */
+.badge-today-pending {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(26, 42, 75, 0.65);
+  border: 1.5px solid #f3d882;
+  box-shadow: 0 0 10px rgba(243, 216, 130, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pending-star {
+  color: #f3d882;
+  font-size: 13px;
+}
+
+/* 普通未签到 */
+.badge-normal {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(20, 32, 60, 0.5);
+  border: 1px solid rgba(160, 200, 255, 0.16);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dim-star {
+  color: #b0d4f1;
+  font-size: 13px;
+  opacity: 0.75;
 }
 
 .day-num {
   font-size: 11px;
-  color: #9ba8c2;
+  color: #8da2c0;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .day-col.is-today .day-num {
   color: #f3d882;
-  font-weight: 600;
+  font-weight: 700;
 }
 </style>

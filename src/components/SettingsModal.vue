@@ -19,7 +19,7 @@
             @click="selectChar('aether', '旅行者')"
           >
             <div class="char-avatar-box">
-              <img src="/char_aether.png" alt="旅行者" class="char-thumb" />
+              <img :src="aetherAvatar" alt="旅行者" class="char-thumb" />
             </div>
             <span class="char-name">旅行者 (空)</span>
           </div>
@@ -30,7 +30,7 @@
             @click="selectChar('venti', '温迪')"
           >
             <div class="char-avatar-box">
-              <img src="/char_venti.png" alt="温迪" class="char-thumb" />
+              <img :src="ventiAvatar" alt="温迪" class="char-thumb" />
             </div>
             <span class="char-name">风色诗人 (温迪)</span>
           </div>
@@ -77,6 +77,10 @@ defineProps({
 })
 
 const emit = defineEmits(['close', 'select-char', 'upload-char', 'export', 'import', 'clear'])
+
+const baseUrl = import.meta.env.BASE_URL || './'
+const aetherAvatar = `${baseUrl}avatar_aether.png`
+const ventiAvatar = `${baseUrl}avatar_venti.png`
 
 function selectChar(type, title) {
   emit('select-char', { type, title })
