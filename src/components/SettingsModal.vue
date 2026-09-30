@@ -46,7 +46,13 @@
           </label>
         </div>
 
-        <!-- 2. 本地数据备份与恢复 -->
+        <!-- 2. 手机安装与全屏指南 -->
+        <div class="section-title" style="margin-top: 18px;">📱 移动端全屏体验</div>
+        <button class="action-btn install-guide-btn" @click="$emit('open-install-guide')">
+          📲 添加到桌面 (彻底隐藏浏览器导航栏)
+        </button>
+
+        <!-- 3. 本地数据备份与恢复 -->
         <div class="section-title" style="margin-top: 18px;">💾 数据备份与恢复</div>
         <div class="btn-group">
           <button class="action-btn" @click="$emit('export')">
@@ -76,7 +82,7 @@ defineProps({
   currentTitle: { type: String, default: '旅行者' }
 })
 
-const emit = defineEmits(['close', 'select-char', 'upload-char', 'export', 'import', 'clear'])
+const emit = defineEmits(['close', 'select-char', 'upload-char', 'export', 'import', 'clear', 'open-install-guide'])
 
 const baseUrl = import.meta.env.BASE_URL || './'
 const aetherAvatar = `${baseUrl}avatar_aether.png`
@@ -286,6 +292,21 @@ function handleClearClick() {
 .action-btn:hover {
   background: rgba(40, 52, 85, 0.9);
   border-color: rgba(243, 216, 130, 0.6);
+}
+
+.install-guide-btn {
+  width: 100%;
+  background: linear-gradient(135deg, rgba(243, 216, 130, 0.2) 0%, rgba(200, 160, 60, 0.25) 100%);
+  border-color: rgba(243, 216, 130, 0.5);
+  color: #fff0bd;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.install-guide-btn:hover {
+  background: linear-gradient(135deg, rgba(243, 216, 130, 0.35) 0%, rgba(200, 160, 60, 0.45) 100%);
+  border-color: #f3d882;
+  box-shadow: 0 0 12px rgba(243, 216, 130, 0.35);
 }
 
 .danger-title {

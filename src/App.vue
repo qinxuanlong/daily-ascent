@@ -87,7 +87,16 @@
       @export="handleExport"
       @import="handleImport"
       @clear="handleClear"
+      @open-install-guide="showInstallGuide = true"
       @close="showSettingsModal = false"
+    />
+
+    <!-- 手机全屏与安装指南弹窗 -->
+    <InstallGuideModal
+      :show="showInstallGuide"
+      :has-install-prompt="!!deferredInstallPrompt"
+      @trigger-install="handleTriggerInstall"
+      @close="showInstallGuide = false"
     />
   </div>
 </template>
@@ -105,6 +114,7 @@ import WeeklyTracker from './components/WeeklyTracker.vue'
 import CheckInLogsModal from './components/CheckInLogsModal.vue'
 import CheckInNoteModal from './components/CheckInNoteModal.vue'
 import SettingsModal from './components/SettingsModal.vue'
+import InstallGuideModal from './components/InstallGuideModal.vue'
 import ToastNotify from './components/ToastNotify.vue'
 
 // 响应式状态管理
@@ -113,7 +123,33 @@ const toastRef = ref(null)
 const showNoteModal = ref(false)
 const showLogsModal = ref(false)
 const showSettingsModal = ref(false)
+const showInstallGuide = ref(false)
+const deferredInstallPrompt = ref(null)
 const isFullscreen = ref(false)
+
+// 监听 PWA 安装事件
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault()
+    deferredInstallPrompt.value = e
+  })
+}
+
+// 触发自动安装或弹出指南
+function handleTriggerInstall() {
+  if (deferredInstallPrompt.value) {
+    deferredInstallPrompt.value.prompt()
+    deferredInstallPrompt.value.userChoice.then((choiceResult) => {
+      if (choiceResult.outcome === 'accepted') {
+        toastRef.value?.show('已接受安装请求 ✦')
+      }
+      deferredInstallPrompt.value = null
+    })
+    showInstallGuide.value = false
+  } else {
+    showInstallGuide.value = true
+  }
+}
 
 // 切换浏览器全屏
 function handleToggleFullscreen() {
