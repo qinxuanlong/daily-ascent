@@ -19,7 +19,7 @@
             @click="selectChar('aether', '旅行者')"
           >
             <div class="char-avatar-box">
-              <img :src="aetherAvatar" alt="旅行者" class="char-thumb" />
+              <img :src="aetherAvatar" alt="旅行者" class="char-thumb" draggable="false" />
             </div>
             <span class="char-name">旅行者 (空)</span>
           </div>
@@ -30,7 +30,7 @@
             @click="selectChar('venti', '温迪')"
           >
             <div class="char-avatar-box">
-              <img :src="ventiAvatar" alt="温迪" class="char-thumb" />
+              <img :src="ventiAvatar" alt="温迪" class="char-thumb" draggable="false" />
             </div>
             <span class="char-name">风色诗人 (温迪)</span>
           </div>
@@ -40,7 +40,7 @@
             <input type="file" accept="image/*" class="file-input" @change="handleFileUpload" />
             <div class="char-avatar-box upload-avatar">
               <span v-if="!customImg" class="upload-icon">📁</span>
-              <img v-else :src="customImg" alt="自定义" class="char-thumb" />
+              <img v-else :src="customImg" alt="自定义" class="char-thumb" draggable="false" />
             </div>
             <span class="char-name">自定义立绘</span>
           </label>

@@ -11,6 +11,7 @@
           :src="characterSrc"
           alt="倒影"
           class="character-reflection"
+          draggable="false"
         />
       </div>
 
@@ -27,6 +28,7 @@
         :alt="title"
         class="character-standee-img"
         :class="{ 'glow-active': isCheckedIn }"
+        draggable="false"
       />
 
       <!-- 风晶蝶与漂浮星芒 -->
