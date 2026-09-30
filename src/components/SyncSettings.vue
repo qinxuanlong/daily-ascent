@@ -1,79 +1,51 @@
 <template>
-  <div class="card">
-    <div class="card-title">
-      <span>☁️ 坚果云 WebDAV 同步</span>
+  <div class="clean-card">
+    <div class="card-header">
+      <span class="card-title-text">☁️ 坚果云 WebDAV 同步</span>
       <span
-        class="sync-dot"
-        :class="config.enabled && isOnline ? 'connected' : 'disconnected'"
-        :title="config.enabled ? '已启用云同步' : '未启用'"
+        style="width: 8px; height: 8px; border-radius: 50%; display: inline-block;"
+        :style="{ background: config.enabled ? '#10b981' : '#6b7280' }"
       ></span>
     </div>
 
-    <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">
-      本地优先存储，通过坚果云免费 WebDAV 跨设备同步与自动备份。
-    </p>
+    <div class="input-label">坚果云账号邮箱</div>
+    <input
+      v-model="config.username"
+      class="input-box"
+      placeholder="your_email@example.com"
+      @change="saveConfig"
+    />
 
-    <div class="form-group">
-      <label>WebDAV 服务器地址</label>
-      <input
-        v-model="config.serverUrl"
-        class="form-input"
-        placeholder="https://dav.jianguoyun.com/dav/"
-      />
-    </div>
+    <div class="input-label">独立应用密码（16 位授权码）</div>
+    <input
+      v-model="config.password"
+      type="password"
+      class="input-box"
+      placeholder="坚果云后台生成的应用密码"
+      @change="saveConfig"
+    />
 
-    <div class="form-group">
-      <label>坚果云账号（邮箱）</label>
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+      <span style="font-size: 13px; color: var(--text-muted);">自动同步（打卡后后台同步）</span>
       <input
-        v-model="config.username"
-        class="form-input"
-        placeholder="your_email@example.com"
-      />
-    </div>
-
-    <div class="form-group">
-      <label>应用授权独立密码（非登录密码）</label>
-      <input
-        v-model="config.password"
-        type="password"
-        class="form-input"
-        placeholder="坚果云后台生成的 16 位独立应用密码"
-      />
-    </div>
-
-    <div class="form-group">
-      <label>云端目录</label>
-      <input
-        v-model="config.appDir"
-        class="form-input"
-        placeholder="/daily-ascent/"
-      />
-    </div>
-
-    <div class="form-group" style="display: flex; align-items: center; justify-content: space-between; margin-top: 14px;">
-      <label style="margin-bottom: 0; cursor: pointer;" for="sync-toggle">
-        启用自动同步（打卡后自动同步）
-      </label>
-      <input
-        id="sync-toggle"
-        v-model="config.enabled"
         type="checkbox"
-        style="width: 18px; height: 18px; cursor: pointer;"
+        v-model="config.enabled"
+        style="cursor: pointer; width: 16px; height: 16px;"
         @change="saveConfig"
       />
     </div>
 
-    <div class="btn-group">
-      <button class="btn btn-ghost" @click="handleTest" :disabled="testing">
+    <div class="btn-row">
+      <button class="clean-btn" :disabled="testing" @click="handleTest">
         {{ testing ? '测试中...' : '🔌 测试连接' }}
       </button>
-      <button class="btn btn-primary" @click="handleSync" :disabled="syncing || !isConfigValid">
-        {{ syncing ? '同步中...' : '🔄 立即双向同步' }}
+      <button class="clean-btn" style="background: var(--primary); color: #fff; border-color: var(--primary);" :disabled="syncing || !isConfigValid" @click="handleSync">
+        {{ syncing ? '同步中...' : '🔄 立即同步' }}
       </button>
     </div>
 
-    <div class="sync-status">
-      <span>上次同步：{{ lastSyncText }}</span>
+    <div style="font-size: 11px; color: var(--text-dim); margin-top: 10px; text-align: center;">
+      上次同步：{{ lastSyncText }}
     </div>
   </div>
 </template>
@@ -105,7 +77,6 @@ const emit = defineEmits(['update-config', 'sync-success', 'toast'])
 const config = ref({ ...props.syncConfig })
 const testing = ref(false)
 const syncing = ref(false)
-const isOnline = ref(true)
 
 const isConfigValid = computed(() => {
   return config.value.serverUrl && config.value.username && config.value.password
@@ -121,10 +92,9 @@ function saveConfig() {
   emit('update-config', { ...config.value })
 }
 
-// 测试连接
 async function handleTest() {
   if (!isConfigValid.value) {
-    emit('toast', '⚠️ 请先完整填写账号和应用授权密码')
+    emit('toast', '⚠️ 请先填写坚果云账号与应用密码')
     return
   }
   testing.value = true
@@ -132,23 +102,20 @@ async function handleTest() {
   try {
     const ok = await testConnection(config.value)
     if (ok) {
-      isOnline.value = true
-      emit('toast', '✅ 坚果云 WebDAV 连接成功！')
+      emit('toast', '✅ 坚果云连接成功！')
     } else {
-      isOnline.value = false
-      emit('toast', '❌ 连接失败，请检查账号和应用独立密码')
+      emit('toast', '❌ 连接失败，请核对账号与密码')
     }
   } catch (err) {
-    emit('toast', '❌ 网络连接错误: ' + err.message)
+    emit('toast', '❌ 连接出错: ' + err.message)
   } finally {
     testing.value = false
   }
 }
 
-// 立即双向同步
 async function handleSync() {
   if (!isConfigValid.value) {
-    emit('toast', '⚠️ 请先配置坚果云账号信息')
+    emit('toast', '⚠️ 请先配置坚果云账号')
     return
   }
   syncing.value = true
@@ -159,7 +126,7 @@ async function handleSync() {
       config.value.lastSync = new Date().toISOString()
       saveConfig()
       emit('sync-success', res.merged)
-      emit('toast', '🎉 同步成功！本地与云端已保持最新')
+      emit('toast', '🎉 同步成功！')
     } else {
       emit('toast', '⚠️ ' + res.message)
     }

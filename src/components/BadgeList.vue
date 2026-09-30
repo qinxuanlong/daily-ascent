@@ -1,16 +1,20 @@
 <template>
-  <div class="card">
-    <div class="card-title">🏅 徽章墙 ({{ unlockedCount }}/{{ BADGE_DEFS.length }})</div>
-    <div class="badge-grid">
+  <div class="clean-card">
+    <div class="card-header">
+      <span class="card-title-text">🏅 成就徽章</span>
+      <span class="tag-badge">{{ unlockedCount }}/{{ BADGE_DEFS.length }}</span>
+    </div>
+
+    <div class="badge-clean-grid">
       <div
         v-for="b in BADGE_DEFS"
         :key="b.id"
-        class="badge-item"
+        class="badge-clean-box"
         :class="badges.includes(b.id) ? 'unlocked' : 'locked'"
         :title="b.desc"
       >
-        <span class="badge-icon">{{ b.icon }}</span>
-        <span class="badge-name">{{ b.name }}</span>
+        <div class="badge-clean-icon">{{ b.icon }}</div>
+        <div class="badge-clean-name">{{ b.name }}</div>
       </div>
     </div>
   </div>

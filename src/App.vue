@@ -1,6 +1,6 @@
 <template>
   <div class="app-container">
-    <!-- 顶部 Toast 提示 -->
+    <!-- 顶部轻量 Toast 通知 -->
     <ToastNotify ref="toastRef" />
 
     <!-- 顶部状态栏 -->
@@ -11,114 +11,156 @@
       :badge-count="state.badges.length"
     />
 
-    <!-- 调试/预览模式切换条（仅在需要手动预览周六/周日体验时切换） -->
-    <div style="display: flex; justify-content: center; gap: 8px; margin-bottom: 14px; font-size: 12px;">
+    <!-- 极简分段导航（4 个功能视图，告别冗长滚动） -->
+    <div class="tab-nav">
       <button
-        class="btn btn-ghost"
-        style="padding: 4px 10px; font-size: 11px;"
-        :class="{ 'btn-primary': viewMode === 'auto' }"
-        @click="viewMode = 'auto'"
+        class="tab-btn"
+        :class="{ active: currentTab === 'today' }"
+        @click="currentTab = 'today'"
       >
-        ⏰ 自动时钟 ({{ todayText }})
+        ⚡ 今日
       </button>
       <button
-        class="btn btn-ghost"
-        style="padding: 4px 10px; font-size: 11px;"
-        :class="{ 'btn-primary': viewMode === 'workday' }"
-        @click="viewMode = 'workday'"
+        class="tab-btn"
+        :class="{ active: currentTab === 'stages' }"
+        @click="currentTab = 'stages'"
       >
-        📋 工作日打卡
+        🗺️ 路线
       </button>
       <button
-        class="btn btn-ghost"
-        style="padding: 4px 10px; font-size: 11px;"
-        :class="{ 'btn-primary': viewMode === 'saturday' }"
-        @click="viewMode = 'saturday'"
+        class="tab-btn"
+        :class="{ active: currentTab === 'assets' }"
+        @click="currentTab = 'assets'"
       >
-        👹 周六 Boss
+        🏅 资产
       </button>
       <button
-        class="btn btn-ghost"
-        style="padding: 4px 10px; font-size: 11px;"
-        :class="{ 'btn-primary': viewMode === 'sunday' }"
-        @click="viewMode = 'sunday'"
+        class="tab-btn"
+        :class="{ active: currentTab === 'settings' }"
+        @click="currentTab = 'settings'"
       >
-        📊 周日结算
+        ⚙️ 设置
       </button>
     </div>
 
-    <!-- 0. 周主线选择（若本周未选主线，则优先展示选择卡片） -->
-    <WeekLineSelect
-      :show="needsWeekLineSelect"
-      @select="handleSelectWeekLine"
-    />
+    <!-- ===== TAB 1: 今日打卡 / Boss / 结算 ===== -->
+    <div v-show="currentTab === 'today'">
+      <!-- 周一未锁定主线时展示 -->
+      <WeekLineSelect
+        :show="needsWeekLineSelect"
+        @select="handleSelectWeekLine"
+      />
 
-    <!-- 1. 明日第一步启动锚点（上次打卡留下的行动提示） -->
-    <div v-if="lastNextStep && !todayLog && effectiveMode === 'workday'" class="next-step-hint">
-      <div class="hint-icon">🚀</div>
-      <div class="hint-text">
-        <span>今日启动锚点：</span>
-        <span class="hint-content">{{ lastNextStep }}</span>
+      <!-- 启动锚点：前一天打卡留下的微小动作 -->
+      <div v-if="lastNextStep && !todayLog && effectiveMode === 'workday'" class="anchor-banner">
+        <div class="anchor-icon">🚀</div>
+        <div>
+          <div class="anchor-title">今日启动锚点</div>
+          <div class="anchor-val">{{ lastNextStep }}</div>
+        </div>
+      </div>
+
+      <!-- 工作日：每日打卡卡片 -->
+      <DailyCheckIn
+        v-if="effectiveMode === 'workday'"
+        :week-line="state.weekLine"
+        :today-log="todayLog"
+        @checkin="handleDailyCheckIn"
+      />
+
+      <!-- 周六：Boss 战与纯爽乐趣 -->
+      <BossBattle
+        v-if="effectiveMode === 'saturday'"
+        :boss-defeated="isBossDefeatedToday"
+        :boss-output-text="state.bossOutput"
+        @kill="handleKillBoss"
+        @fun="handleRecordFun"
+      />
+
+      <!-- 周日：成就结算 -->
+      <WeeklySettle
+        v-if="effectiveMode === 'sunday'"
+        :week-stats="currentWeekStats"
+        :settled="isWeekSettled"
+        :settled-info="latestSettleInfo"
+        @settle="handleWeeklySettle"
+      />
+    </div>
+
+    <!-- ===== TAB 2: 关卡路线 ===== -->
+    <div v-show="currentTab === 'stages'">
+      <StageMap
+        :line="state.weekLine"
+        :progress="currentLineProgress"
+        @complete-stage="handleCompleteStage"
+      />
+    </div>
+
+    <!-- ===== TAB 3: 认知与成就资产 ===== -->
+    <div v-show="currentTab === 'assets'">
+      <BadgeList :badges="state.badges" />
+      <SkillCards :logs="state.logs" />
+      <RecentLogs :logs="state.logs" />
+    </div>
+
+    <!-- ===== TAB 4: 云同步与设置 ===== -->
+    <div v-show="currentTab === 'settings'">
+      <!-- 坚果云 WebDAV 同步 -->
+      <SyncSettings
+        :sync-config="state.syncConfig"
+        :current-data="state"
+        @update-config="handleUpdateSyncConfig"
+        @sync-success="handleSyncSuccess"
+        @toast="showToast"
+      />
+
+      <!-- 本地数据导入导出 -->
+      <DataManager
+        @export="handleExport"
+        @import="handleImport"
+        @clear="handleClear"
+      />
+
+      <!-- 模式预览测试（收纳于设置页） -->
+      <div class="clean-card">
+        <div class="card-header">
+          <span class="card-title-text">🧪 场景模式预览</span>
+        </div>
+        <p style="font-size: 12px; color: var(--text-dim); margin-bottom: 12px;">
+          默认跟随当前时钟（05:00 切日）。可临时切换预览周六 Boss 或周日结算。
+        </p>
+        <div class="btn-row">
+          <button
+            class="clean-btn"
+            :style="viewMode === 'auto' ? 'border-color: #3b82f6; color: #fff;' : ''"
+            @click="viewMode = 'auto'"
+          >
+            时钟自动
+          </button>
+          <button
+            class="clean-btn"
+            :style="viewMode === 'workday' ? 'border-color: #3b82f6; color: #fff;' : ''"
+            @click="viewMode = 'workday'"
+          >
+            工作日
+          </button>
+          <button
+            class="clean-btn"
+            :style="viewMode === 'saturday' ? 'border-color: #3b82f6; color: #fff;' : ''"
+            @click="viewMode = 'saturday'"
+          >
+            周六
+          </button>
+          <button
+            class="clean-btn"
+            :style="viewMode === 'sunday' ? 'border-color: #3b82f6; color: #fff;' : ''"
+            @click="viewMode = 'sunday'"
+          >
+            周日
+          </button>
+        </div>
       </div>
     </div>
-
-    <!-- 2. 工作日打卡模式 -->
-    <DailyCheckIn
-      v-if="effectiveMode === 'workday'"
-      :week-line="state.weekLine"
-      :today-log="todayLog"
-      @checkin="handleDailyCheckIn"
-    />
-
-    <!-- 3. 周六 Boss 战模式 -->
-    <BossBattle
-      v-if="effectiveMode === 'saturday'"
-      :boss-defeated="isBossDefeatedToday"
-      :boss-output-text="state.bossOutput"
-      @kill="handleKillBoss"
-      @fun="handleRecordFun"
-    />
-
-    <!-- 4. 周日结算模式 -->
-    <WeeklySettle
-      v-if="effectiveMode === 'sunday'"
-      :week-stats="currentWeekStats"
-      :settled="isWeekSettled"
-      :settled-info="latestSettleInfo"
-      @settle="handleWeeklySettle"
-    />
-
-    <!-- 5. 关卡路线图 -->
-    <StageMap
-      :line="state.weekLine"
-      :progress="currentLineProgress"
-      @complete-stage="handleCompleteStage"
-    />
-
-    <!-- 6. 徽章墙 -->
-    <BadgeList :badges="state.badges" />
-
-    <!-- 7. 技能卡集 -->
-    <SkillCards :logs="state.logs" />
-
-    <!-- 8. 最近打卡记录 -->
-    <RecentLogs :logs="state.logs" />
-
-    <!-- 9. 坚果云 WebDAV 同步 -->
-    <SyncSettings
-      :sync-config="state.syncConfig"
-      :current-data="state"
-      @update-config="handleUpdateSyncConfig"
-      @sync-success="handleSyncSuccess"
-      @toast="showToast"
-    />
-
-    <!-- 10. 本地数据备份与管理 -->
-    <DataManager
-      @export="handleExport"
-      @import="handleImport"
-      @clear="handleClear"
-    />
 
     <!-- 明日第一步弹窗 -->
     <NextStepModal
@@ -149,7 +191,6 @@ import { storage, defaultData } from './stores/storage.js'
 import {
   getGameDate,
   getGameDayOfWeek,
-  isWorkday,
   isSaturday,
   isSunday,
   getWeekMonday,
@@ -158,28 +199,24 @@ import {
 import { checkBadges } from './utils/badges.js'
 import { syncData } from './utils/webdav.js'
 
-// 组件引用
 const toastRef = ref(null)
 const headerRef = ref(null)
 
-// 响应式状态
+// 响应式数据
 const state = reactive(storage.get())
 
-// 视图模式：'auto' 自动跟随时间，或手动强制 'workday' / 'saturday' / 'sunday'
+// 当前标签页：'today' | 'stages' | 'assets' | 'settings'
+const currentTab = ref('today')
+
+// 模式控制：'auto' | 'workday' | 'saturday' | 'sunday'
 const viewMode = ref('auto')
 
 // 弹窗状态
 const showNextModal = ref(false)
 
-// 今日游戏日期（05:00 切换）
+// 游戏日期与判定
 const today = computed(() => getGameDate())
-const todayDow = computed(() => getGameDayOfWeek())
-const todayText = computed(() => {
-  const dows = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
-  return `${today.value} ${dows[todayDow.value]}`
-})
 
-// 判定生效的业务模式
 const effectiveMode = computed(() => {
   if (viewMode.value !== 'auto') return viewMode.value
   if (isSaturday()) return 'saturday'
@@ -187,28 +224,19 @@ const effectiveMode = computed(() => {
   return 'workday'
 })
 
-// 是否需要选择本周主线（未选择主线）
-const needsWeekLineSelect = computed(() => {
-  return !state.weekLine
-})
+const needsWeekLineSelect = computed(() => !state.weekLine)
 
-// 今日打卡记录
 const todayLog = computed(() => {
   return state.logs.find(l => l.date === today.value) || null
 })
 
-// 今日 Boss 是否已击杀
-const isBossDefeatedToday = computed(() => {
-  return state.boss === today.value
-})
+const isBossDefeatedToday = computed(() => state.boss === today.value)
 
-// 当前主线的关卡进度
 const currentLineProgress = computed(() => {
   if (!state.weekLine) return 0
   return state.stages[state.weekLine] || 0
 })
 
-// 上次打卡留下的“明日第一步”提示
 const lastNextStep = computed(() => {
   if (!state.logs || state.logs.length === 0) return ''
   const prevLogs = state.logs.slice().reverse()
@@ -216,7 +244,6 @@ const lastNextStep = computed(() => {
   return found ? found.next : ''
 })
 
-// 本周结算情况
 const latestSettleInfo = computed(() => {
   if (!state.settles || state.settles.length === 0) return null
   return state.settles[state.settles.length - 1]
@@ -227,7 +254,6 @@ const isWeekSettled = computed(() => {
   return state.settles.some(s => s.weekStart === currentWeekMonday || s.date === today.value)
 })
 
-// 本周数据汇总
 const currentWeekStats = computed(() => {
   const currentWeekMonday = getWeekMonday()
   const weekLogs = state.logs.filter(l => l.date >= currentWeekMonday)
@@ -240,17 +266,14 @@ const currentWeekStats = computed(() => {
   }
 })
 
-// Toast 辅助方法
 function showToast(msg) {
   toastRef.value?.show(msg)
 }
 
-// 保存数据至 localStorage
 function persist() {
   storage.set(state)
 }
 
-// 自动后台同步（若启用了坚果云 WebDAV）
 async function triggerAutoSync() {
   if (!state.syncConfig?.enabled) return
   if (!state.syncConfig.serverUrl || !state.syncConfig.username || !state.syncConfig.password) return
@@ -263,11 +286,10 @@ async function triggerAutoSync() {
       persist()
     }
   } catch (err) {
-    console.warn('[AutoSync] 自动同步跳过:', err.message)
+    console.warn('[AutoSync] 同步跳过:', err.message)
   }
 }
 
-// 检查并解锁新徽章
 function inspectBadges() {
   const newOnes = checkBadges(state)
   if (newOnes.length > 0) {
@@ -281,7 +303,6 @@ function inspectBadges() {
   }
 }
 
-// 选择周主线
 function handleSelectWeekLine(line) {
   state.weekLine = line
   state.weekStart = getWeekMonday()
@@ -290,20 +311,16 @@ function handleSelectWeekLine(line) {
   triggerAutoSync()
 }
 
-// 每日打卡核心逻辑
 function handleDailyCheckIn({ output, skill, overload }) {
   const currentDate = today.value
-
-  // 1. 连击计算：断更不清零，记录历史最高
   const lastCheckDate = state.last
+
   if (isConsecutiveWorkday(lastCheckDate, currentDate)) {
-    // 连续工作日打卡
     state.streak += 1
   } else if (lastCheckDate === currentDate) {
     showToast('今天已经打过卡了')
     return
   } else {
-    // 断更后重新开始
     state.maxStreak = Math.max(state.maxStreak || 0, state.streak || 0)
     if (state.logs.length > 0) {
       state.hasRestarted = true
@@ -315,7 +332,6 @@ function handleDailyCheckIn({ output, skill, overload }) {
   state.exp += 1
   state.last = currentDate
 
-  // 写入日志
   const newLog = {
     date: currentDate,
     line: state.weekLine || '默认主线',
@@ -326,28 +342,22 @@ function handleDailyCheckIn({ output, skill, overload }) {
   }
   state.logs.push(newLog)
 
-  // 触发动效
   headerRef.value?.triggerBounce('exp')
   headerRef.value?.triggerBounce('streak')
 
   if (overload) {
-    showToast('💤 挂机模式打卡成功 +1经验')
+    showToast('💤 挂机通关 +1经验')
   } else {
     showToast('✅ 打卡成功 +1经验')
   }
 
-  // 检查徽章
   inspectBadges()
-
-  // 持久化与同步
   persist()
   triggerAutoSync()
 
-  // 弹出“明日第一步”输入弹窗
   showNextModal.value = true
 }
 
-// 明日第一步确认
 function handleConfirmNextStep(step) {
   showNextModal.value = false
   if (step && state.logs.length > 0) {
@@ -358,12 +368,10 @@ function handleConfirmNextStep(step) {
   }
 }
 
-// 跳过明日第一步
 function handleSkipNextStep() {
   showNextModal.value = false
 }
 
-// 周六击杀 Boss
 function handleKillBoss(output) {
   state.exp += 2
   state.boss = today.value
@@ -376,23 +384,21 @@ function handleKillBoss(output) {
   triggerAutoSync()
 }
 
-// 记录纯爽乐趣
 function handleRecordFun(content) {
   state.funLog.push({
     date: today.value,
     content
   })
-  showToast('🎉 乐趣时刻已收录！')
+  showToast('🎉 纯爽时刻已收录！')
   persist()
   triggerAutoSync()
 }
 
-// 周日完成结算
 function handleWeeklySettle({ nextLine, nextStep }) {
   const currentWeekMonday = getWeekMonday()
   const weekLogs = state.logs.filter(l => l.date >= currentWeekMonday)
 
-  const settleRecord = {
+  state.settles.push({
     date: today.value,
     weekStart: currentWeekMonday,
     total: weekLogs.length,
@@ -400,69 +406,60 @@ function handleWeeklySettle({ nextLine, nextStep }) {
     streak: state.streak,
     nextLine,
     nextStep
-  }
-  state.settles.push(settleRecord)
+  })
 
-  // 切换为下周主线
   state.weekLine = nextLine
   state.weekStart = today.value
 
-  showToast('📊 本周结算圆满完成！已锁定下周主线')
+  showToast('📊 本周结算完成！已锚定下周主线')
   persist()
   triggerAutoSync()
 }
 
-// 手动推进关卡
 function handleCompleteStage() {
   if (!state.weekLine) return
   if (!state.stages) state.stages = {}
   const cur = state.stages[state.weekLine] || 0
   if (cur < 6) {
     state.stages[state.weekLine] = cur + 1
-    showToast(`🎯 顺利通关！进度达到 ${cur + 1}/6`)
+    showToast(`🎯 通关！进度 ${cur + 1}/6`)
     inspectBadges()
     persist()
     triggerAutoSync()
   }
 }
 
-// 更新同步配置
 function handleUpdateSyncConfig(newConfig) {
   state.syncConfig = { ...newConfig }
   persist()
 }
 
-// 同步成功后合并状态
 function handleSyncSuccess(mergedData) {
   Object.assign(state, mergedData)
   persist()
 }
 
-// 导出 JSON
 function handleExport() {
   storage.exportJSON()
-  showToast('⬇️ 数据已成功导出为 JSON')
+  showToast('⬇️ 数据已导出 JSON')
 }
 
-// 导入 JSON
 async function handleImport(file) {
   try {
     const data = await storage.importJSON(file)
     Object.assign(state, data)
-    showToast('⬆️ 数据导入成功！')
+    showToast('⬆️ 数据恢复成功！')
   } catch (err) {
     showToast('❌ 导入失败：' + err.message)
   }
 }
 
-// 清空本地数据
 function handleClear() {
   storage.clear()
   Object.assign(state, JSON.parse(JSON.stringify(defaultData)))
-  showToast('🗑️ 本地数据已全部清空')
+  showToast('🗑️ 数据已全部清空')
 }
 
-// 挂载时尝试一次静默同步
 onMounted(() => {
   if (state.syncConfig?.enabled) {
     triggerAutoSync()

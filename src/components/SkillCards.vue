@@ -1,13 +1,23 @@
 <template>
-  <div class="card">
-    <div class="card-title">📚 技能卡集 ({{ skills.length }})</div>
-    <div v-if="skills.length" class="skill-list">
-      <div v-for="(s, index) in skills" :key="index" class="skill-item">
-        <span class="skill-date">{{ shortDate(s.date) }}</span>
-        <span>{{ s.skill }}</span>
+  <div class="clean-card">
+    <div class="card-header">
+      <span class="card-title-text">📚 技能卡集</span>
+      <span class="tag-badge">{{ skills.length }} 条积累</span>
+    </div>
+
+    <div v-if="skills.length" style="display: flex; flex-direction: column; gap: 8px;">
+      <div
+        v-for="(s, idx) in skills"
+        :key="idx"
+        style="padding: 8px 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); font-size: 13px; display: flex; gap: 8px;"
+      >
+        <span style="color: var(--text-dim); white-space: nowrap;">{{ shortDate(s.date) }}</span>
+        <span style="color: var(--text-main);">{{ s.skill }}</span>
       </div>
     </div>
-    <div v-else class="empty">还没有技能卡，打卡时填写即可慢慢积累认知资产</div>
+    <div v-else style="text-align: center; color: var(--text-dim); font-size: 12px; padding: 12px 0;">
+      打卡时记录领悟，逐步建立认知资产
+    </div>
   </div>
 </template>
 
@@ -19,7 +29,6 @@ const props = defineProps({
   logs: { type: Array, default: () => [] }
 })
 
-// 筛选有技能记录的日志，按时间倒序排列
 const skills = computed(() => {
   return props.logs
     .filter(l => l && l.skill && l.skill.trim())

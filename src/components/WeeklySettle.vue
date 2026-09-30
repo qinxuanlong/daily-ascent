@@ -1,84 +1,67 @@
 <template>
-  <div class="card">
-    <div class="card-title">📊 本周结算</div>
+  <div class="clean-card">
+    <div class="card-header">
+      <span class="card-title-text">📊 周日成就结算</span>
+    </div>
 
     <!-- 已结算 -->
-    <div v-if="settled" class="checked-in-banner">
-      <div class="check-icon">📊</div>
-      <div class="check-text">本周已结算</div>
-      <div style="margin-top: 8px; font-size: 13px; color: var(--text-secondary);">
-        下周主线已锚定：{{ settledInfo?.nextLine }} · 下一步：{{ settledInfo?.nextStep || '未填写' }}
+    <div v-if="settled" class="done-banner">
+      <div class="done-icon">📊</div>
+      <div class="done-title">本周已圆满结算</div>
+      <div class="done-desc">
+        下周主线：{{ settledInfo?.nextLine }} · 下一步：{{ settledInfo?.nextStep || '开动！' }}
       </div>
     </div>
 
     <template v-else>
-      <!-- 成就面板 -->
-      <div class="settle-grid">
-        <div class="settle-stat">
-          <div class="value">{{ weekStats.checkIns }}</div>
-          <div class="label">本周打卡次数</div>
+      <!-- 极简 4 格成就指标 -->
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+        <div style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 20px; font-weight: 700; color: #fff;">{{ weekStats.checkIns }}</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">打卡次数</div>
         </div>
-        <div class="settle-stat">
-          <div class="value">{{ weekStats.streak }}</div>
-          <div class="label">当前连击</div>
+        <div style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 20px; font-weight: 700; color: #fff;">{{ weekStats.streak }} 天</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">当前连击</div>
         </div>
-        <div class="settle-stat">
-          <div class="value">{{ LINE_ICONS[weekStats.line] || '🎯' }} {{ weekStats.line || '无' }}</div>
-          <div class="label">本周主线</div>
+        <div style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 14px; font-weight: 600; color: #fff; line-height: 28px;">{{ LINE_ICONS[weekStats.line] }} {{ weekStats.line || '无' }}</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">本周主线</div>
         </div>
-        <div class="settle-stat">
-          <div class="value">{{ weekStats.stageProgress }}/6</div>
-          <div class="label">关卡进度</div>
-        </div>
-      </div>
-
-      <!-- 本周新获得徽章 -->
-      <div v-if="weekStats.newBadges && weekStats.newBadges.length" style="margin-top: 14px;">
-        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">🏅 本周新获得徽章</div>
-        <div class="badge-grid">
-          <div v-for="b in weekStats.newBadges" :key="b" class="badge-item unlocked">
-            <span class="badge-icon">{{ getBadgeDef(b)?.icon }}</span>
-            <span class="badge-name">{{ getBadgeDef(b)?.name }}</span>
-          </div>
+        <div style="padding: 12px; background: rgba(0,0,0,0.2); border-radius: var(--radius-sm); text-align: center;">
+          <div style="font-size: 20px; font-weight: 700; color: #fff;">{{ weekStats.stageProgress }}/6</div>
+          <div style="font-size: 11px; color: var(--text-dim); margin-top: 2px;">关卡进度</div>
         </div>
       </div>
 
-      <div class="divider"></div>
-
-      <!-- 下周主线选择 -->
-      <div style="margin-bottom: 12px;">
-        <div style="font-size: 13px; color: var(--text-secondary); margin-bottom: 8px;">🎯 选择下周主线</div>
-        <div class="line-cards">
-          <div
-            v-for="line in LINE_NAMES"
-            :key="line"
-            class="line-card"
-            :class="{ selected: nextLine === line }"
-            @click="nextLine = line"
-          >
-            <div class="line-icon">{{ LINE_ICONS[line] }}</div>
-            <div class="line-name">{{ line }}</div>
-          </div>
+      <!-- 选择下周主线 -->
+      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">锁定下周主线</div>
+      <div style="display: flex; gap: 8px; margin-bottom: 14px;">
+        <div
+          v-for="line in LINE_NAMES"
+          :key="line"
+          style="flex: 1; padding: 10px 4px; text-align: center; border-radius: var(--radius-sm); border: 1px solid var(--border); background: rgba(0,0,0,0.2); cursor: pointer;"
+          :style="nextLine === line ? 'border-color: #3b82f6; background: rgba(59,130,246,0.1);' : ''"
+          @click="nextLine = line"
+        >
+          <div style="font-size: 18px;">{{ LINE_ICONS[line] }}</div>
+          <div style="font-size: 12px; color: #fff; margin-top: 2px;">{{ line }}</div>
         </div>
       </div>
 
-      <!-- 下周第一步 -->
-      <div class="form-group">
-        <label>下周第一步</label>
-        <input
-          v-model="nextStep"
-          class="form-input"
-          placeholder="下周一打开要做哪件具体小事？"
-        />
-      </div>
+      <!-- 下周启动第一步 -->
+      <input
+        v-model="nextStep"
+        class="input-box"
+        placeholder="下周一打开做哪件微小动作？"
+      />
 
       <button
-        class="btn btn-primary"
-        style="width: 100%;"
-        @click="confirmSettle"
+        class="btn-primary-block"
         :disabled="!nextLine"
+        @click="confirmSettle"
       >
-        📊 完成结算，获得满满成就感！
+        📊 完成本周结算，沉淀成就感
       </button>
     </template>
   </div>
@@ -87,12 +70,11 @@
 <script setup>
 import { ref } from 'vue'
 import { LINE_NAMES, LINE_ICONS } from '../data/stages.js'
-import { getBadgeDef } from '../utils/badges.js'
 
 defineProps({
   weekStats: {
     type: Object,
-    default: () => ({ checkIns: 0, streak: 0, line: '', stageProgress: 0, newBadges: [] })
+    default: () => ({ checkIns: 0, streak: 0, line: '', stageProgress: 0 })
   },
   settled: { type: Boolean, default: false },
   settledInfo: { type: Object, default: null }

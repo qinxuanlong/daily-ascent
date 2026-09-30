@@ -1,19 +1,21 @@
 <template>
-  <div class="app-header">
-    <h1>🎮 每日攀升</h1>
-    <div class="subtitle">有产出就是升级 · 断更不清零</div>
-    <div class="stats-bar">
-      <div class="stat-item">
+  <div class="header-wrap">
+    <div class="header-title">
+      <span>🎮 每日攀升</span>
+    </div>
+    <div class="header-sub">有产出就是升级 · 断更不清零</div>
+    <div class="stats-capsule">
+      <div class="stat-pill">
         <span>⭐</span>
-        <span class="stat-value" :class="{ bounce: expBounce }" @animationend="expBounce = false">{{ exp }}</span>
+        <span class="stat-num" :class="{ bounce: expBounce }" @animationend="expBounce = false">{{ exp }}</span>
       </div>
-      <div class="stat-item">
+      <div class="stat-pill">
         <span>🔥</span>
-        <span class="stat-value" :class="{ bounce: streakBounce }" @animationend="streakBounce = false">{{ streak }}</span>
+        <span class="stat-num" :class="{ bounce: streakBounce }" @animationend="streakBounce = false">{{ streak }}</span>
       </div>
-      <div class="stat-item">
+      <div class="stat-pill">
         <span>🏅</span>
-        <span class="stat-value">{{ badgeCount }}</span>
+        <span class="stat-num">{{ badgeCount }}</span>
       </div>
     </div>
   </div>
@@ -31,7 +33,6 @@ defineProps({
 const expBounce = ref(false)
 const streakBounce = ref(false)
 
-// 触发数字弹跳动画
 function triggerBounce(type) {
   if (type === 'exp') expBounce.value = true
   if (type === 'streak') streakBounce.value = true

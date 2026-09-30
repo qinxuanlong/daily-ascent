@@ -1,15 +1,26 @@
 <template>
-  <div class="card">
-    <div class="card-title">📁 最近记录 ({{ recentLogs.length }})</div>
-    <div v-if="recentLogs.length" class="log-list">
-      <div v-for="(log, idx) in recentLogs" :key="idx" class="log-item">
-        <span class="log-date">{{ shortDate(log.date) }}</span>
-        <span class="log-line">[{{ log.line }}]</span>
-        <span class="log-output" :title="log.output">{{ log.output }}</span>
-        <span class="log-exp">{{ log.overload ? '+1💤' : '+1⭐' }}</span>
+  <div class="clean-card">
+    <div class="card-header">
+      <span class="card-title-text">📁 打卡日志</span>
+      <span class="tag-badge">{{ recentLogs.length }} 篇</span>
+    </div>
+
+    <div v-if="recentLogs.length">
+      <div
+        v-for="(log, idx) in recentLogs"
+        :key="idx"
+        class="log-clean-item"
+      >
+        <div style="display: flex; align-items: center; min-width: 0; flex: 1;">
+          <span class="log-clean-date">{{ shortDate(log.date) }}</span>
+          <span class="log-clean-text" :title="log.output">{{ log.output }}</span>
+        </div>
+        <span class="log-clean-tag">{{ log.overload ? '+1💤' : '+1⭐' }}</span>
       </div>
     </div>
-    <div v-else class="empty">还没有打卡记录，开启你的第一次产出吧！</div>
+    <div v-else style="text-align: center; color: var(--text-dim); font-size: 12px; padding: 12px 0;">
+      还没有打卡记录
+    </div>
   </div>
 </template>
 
@@ -21,8 +32,7 @@ const props = defineProps({
   logs: { type: Array, default: () => [] }
 })
 
-// 最近 15 条，倒序
 const recentLogs = computed(() => {
-  return [...props.logs].reverse().slice(0, 15)
+  return [...props.logs].reverse().slice(0, 10)
 })
 </script>
