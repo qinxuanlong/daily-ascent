@@ -6,6 +6,14 @@ export default defineConfig({
   plugins: [vue()],
   server: {
     port: 3000,
-    open: true
+    open: true,
+    proxy: {
+      '/api/dav': {
+        target: 'https://dav.jianguoyun.com/dav',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/dav/, '')
+      }
+    }
   }
 })
+

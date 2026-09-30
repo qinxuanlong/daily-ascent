@@ -46,13 +46,64 @@
           </label>
         </div>
 
-        <!-- 2. 手机安装与全屏指南 -->
+        <!-- 2. 坚果云 WebDAV 云同步 -->
+        <div class="section-title" style="margin-top: 18px;">
+          ☁️ 坚果云 WebDAV 跨端同步
+          <span v-if="syncConfig.lastSyncTime" class="sync-time-badge">
+            上次: {{ syncConfig.lastSyncTime }}
+          </span>
+        </div>
+        <div class="webdav-box">
+          <div class="input-row">
+            <span class="input-label">账号:</span>
+            <input
+              v-model="syncConfig.username"
+              type="email"
+              class="webdav-input"
+              placeholder="坚果云注册邮箱"
+              @change="handleSaveWebdavConfig"
+            />
+          </div>
+          <div class="input-row">
+            <span class="input-label">密码:</span>
+            <input
+              v-model="syncConfig.password"
+              type="password"
+              class="webdav-input"
+              placeholder="第三方应用独立授权密码"
+              @change="handleSaveWebdavConfig"
+            />
+          </div>
+          <div class="sync-options-row">
+            <label class="checkbox-label">
+              <input
+                v-model="syncConfig.autoSync"
+                type="checkbox"
+                @change="handleSaveWebdavConfig"
+              />
+              <span>打卡后自动同步</span>
+            </label>
+            <button class="test-btn" :disabled="testing" @click="handleTestConnection">
+              {{ testing ? '检测中...' : '测试连接' }}
+            </button>
+          </div>
+          <button
+            class="action-btn sync-now-btn"
+            :disabled="syncing"
+            @click="handleTriggerSync"
+          >
+            <span class="sync-icon" :class="{ rotating: syncing }">🔄</span>
+            {{ syncing ? '正在双向合并同步中...' : '立即与坚果云同步' }}
+          </button>
+        </div>
+
+        <!-- 3. 手机安装与全屏指南 -->
         <div class="section-title" style="margin-top: 18px;">📱 移动端全屏体验</div>
         <button class="action-btn install-guide-btn" @click="$emit('open-install-guide')">
           📲 添加到桌面 (彻底隐藏浏览器导航栏)
         </button>
 
-        <!-- 3. 本地数据备份与恢复 -->
+        <!-- 4. 本地数据备份与恢复 -->
         <div class="section-title" style="margin-top: 18px;">💾 数据备份与恢复</div>
         <div class="btn-group">
           <button class="action-btn" @click="$emit('export')">
@@ -75,18 +126,74 @@
 </template>
 
 <script setup>
-defineProps({
+import { ref, reactive, watch } from 'vue'
+import { webdav } from '../utils/webdav.js'
+
+const props = defineProps({
   show: { type: Boolean, default: false },
   currentType: { type: String, default: 'aether' },
   customImg: { type: String, default: '' },
   currentTitle: { type: String, default: '旅行者' }
 })
 
-const emit = defineEmits(['close', 'select-char', 'upload-char', 'export', 'import', 'clear', 'open-install-guide'])
+const emit = defineEmits([
+  'close',
+  'select-char',
+  'upload-char',
+  'export',
+  'import',
+  'clear',
+  'open-install-guide',
+  'trigger-sync',
+  'toast'
+])
 
 const baseUrl = import.meta.env.BASE_URL || './'
 const aetherAvatar = `${baseUrl}avatar_aether.png`
 const ventiAvatar = `${baseUrl}avatar_venti.png`
+
+// WebDAV 配置状态
+const syncConfig = reactive(webdav.getConfig())
+const testing = ref(false)
+const syncing = ref(false)
+
+// 弹窗打开时刷新配置
+watch(() => props.show, (newVal) => {
+  if (newVal) {
+    Object.assign(syncConfig, webdav.getConfig())
+  }
+})
+
+function handleSaveWebdavConfig() {
+  webdav.saveConfig(syncConfig)
+}
+
+async function handleTestConnection() {
+  handleSaveWebdavConfig()
+  testing.value = true
+  try {
+    const res = await webdav.testConnection()
+    emit('toast', res.message)
+  } finally {
+    testing.value = false
+  }
+}
+
+async function handleTriggerSync() {
+  handleSaveWebdavConfig()
+  syncing.value = true
+  try {
+    emit('trigger-sync', (success, message) => {
+      syncing.value = false
+      if (success) {
+        Object.assign(syncConfig, webdav.getConfig())
+      }
+      if (message) emit('toast', message)
+    })
+  } catch {
+    syncing.value = false
+  }
+}
 
 function selectChar(type, title) {
   emit('select-char', { type, title })
@@ -323,5 +430,118 @@ function handleClearClick() {
 .danger-btn:hover {
   background: rgba(239, 68, 68, 0.25);
   border-color: rgba(239, 68, 68, 0.7);
+}
+
+/* 坚果云 WebDAV 专属面板 */
+.sync-time-badge {
+  font-size: 10px;
+  color: #94a3b8;
+  font-weight: normal;
+  margin-left: 6px;
+}
+
+.webdav-box {
+  background: rgba(20, 28, 48, 0.6);
+  border: 1px solid rgba(243, 216, 130, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-label {
+  font-size: 11px;
+  color: #eed588;
+  width: 36px;
+  flex-shrink: 0;
+}
+
+.webdav-input {
+  flex: 1;
+  background: rgba(10, 15, 28, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 6px;
+  color: #f1f5f9;
+  padding: 6px 10px;
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.webdav-input:focus {
+  border-color: #f3d882;
+}
+
+.sync-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 2px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #cbd5e1;
+  cursor: pointer;
+}
+
+.checkbox-label input {
+  cursor: pointer;
+  accent-color: #f3d882;
+}
+
+.test-btn {
+  background: transparent;
+  border: 1px solid rgba(243, 216, 130, 0.4);
+  color: #eed588;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.test-btn:hover:not(:disabled) {
+  background: rgba(243, 216, 130, 0.15);
+  border-color: #f3d882;
+}
+
+.sync-now-btn {
+  width: 100%;
+  margin-top: 4px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(59, 130, 246, 0.2) 100%);
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #bae6fd;
+}
+
+.sync-now-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.3) 0%, rgba(59, 130, 246, 0.35) 100%);
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
+}
+
+.sync-icon {
+  display: inline-block;
+  margin-right: 6px;
+}
+
+.sync-icon.rotating {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>

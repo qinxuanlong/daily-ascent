@@ -14,6 +14,10 @@
       </div>
 
       <div class="top-actions">
+        <!-- 坚果云快捷同步按钮 -->
+        <button class="top-icon-btn" :class="{ 'syncing-btn': isSyncing }" title="坚果云数据同步" @click="handleManualSync">
+          <span class="icon" :class="{ rotating: isSyncing }">☁️</span>
+        </button>
         <!-- 打卡历程历史弹窗快捷入口 -->
         <button class="top-icon-btn" title="查看打卡历程记录" @click="showLogsModal = true">
           <span class="icon">📜</span>
@@ -88,6 +92,8 @@
       @import="handleImport"
       @clear="handleClear"
       @open-install-guide="showInstallGuide = true"
+      @trigger-sync="handleSyncFromModal"
+      @toast="(msg) => toastRef?.show(msg)"
       @close="showSettingsModal = false"
     />
 
@@ -105,6 +111,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { storage } from './stores/storage.js'
 import { getGameDate, formatTime, calculateStreak } from './utils/date.js'
+import { webdav } from './utils/webdav.js'
 
 // 组件引入
 import CharacterStandee from './components/CharacterStandee.vue'
@@ -126,6 +133,7 @@ const showSettingsModal = ref(false)
 const showInstallGuide = ref(false)
 const deferredInstallPrompt = ref(null)
 const isFullscreen = ref(false)
+const isSyncing = ref(false)
 
 // 监听 PWA 安装事件
 if (typeof window !== 'undefined') {
@@ -227,6 +235,51 @@ function handleConfirmCheckIn(note) {
 
   saveState()
   toastRef.value?.show('打卡成功！获得 50 EXP ✦')
+
+  // 若开启了坚果云自动同步，后台静默上传
+  const syncCfg = webdav.getConfig()
+  if (syncCfg.enabled && syncCfg.autoSync) {
+    performSync(true)
+  }
+}
+
+// 执行与坚果云的双向合并同步
+async function performSync(silent = false, callback = null) {
+  if (isSyncing.value) return
+  isSyncing.value = true
+  try {
+    const res = await webdav.sync(state)
+    if (res.success && res.data) {
+      Object.assign(state, res.data)
+      saveState()
+      if (!silent) {
+        toastRef.value?.show(res.message || '坚果云同步成功 ✦')
+      }
+      callback?.(true, res.message)
+    } else {
+      if (!silent) {
+        toastRef.value?.show(res.message || '同步未完成')
+      }
+      callback?.(false, res.message)
+    }
+  } catch (e) {
+    if (!silent) {
+      toastRef.value?.show('同步出错，请检查网络')
+    }
+    callback?.(false, e.message)
+  } finally {
+    isSyncing.value = false
+  }
+}
+
+// 顶部快捷同步点击
+function handleManualSync() {
+  performSync(false)
+}
+
+// 设置弹窗内触发同步
+function handleSyncFromModal(callback) {
+  performSync(false, callback)
 }
 
 // 删除记录
@@ -239,6 +292,10 @@ function handleDeleteLog(logId) {
     state.streak = calculateStreak(state.logs, todayStr.value)
     saveState()
     toastRef.value?.show('已删除该条记录')
+    // 同步到云端
+    if (webdav.getConfig().autoSync) {
+      performSync(true)
+    }
   }
 }
 
@@ -287,6 +344,12 @@ onMounted(() => {
   // 校验并同步最新连击
   state.streak = calculateStreak(state.logs, todayStr.value)
   saveState()
+
+  // 页面打开时若已配置坚果云则后台静默拉取云端最新数据
+  const cfg = webdav.getConfig()
+  if (cfg.enabled && cfg.username && cfg.password) {
+    performSync(true)
+  }
 
   // 监听全屏变动
   const updateFullscreenStatus = () => {
@@ -371,5 +434,21 @@ onMounted(() => {
 
 .top-icon-btn .icon {
   font-size: 16px;
+}
+
+.top-icon-btn.syncing-btn {
+  border-color: #38bdf8;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
+}
+
+.icon.rotating {
+  display: inline-block;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
 }
 </style>
