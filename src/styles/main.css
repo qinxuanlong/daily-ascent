@@ -66,16 +66,21 @@ body::before {
   opacity: 0.7;
 }
 
-/* 主容器：居中视口与留白控制 */
+/* 主容器：居中视口、移动端安全区与留白控制 */
 .app-container {
   position: relative;
   z-index: 1;
   max-width: 440px;
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 12px 16px 28px;
+  padding-top: max(12px, env(safe-area-inset-top));
+  padding-bottom: max(26px, env(safe-area-inset-bottom));
+  padding-left: max(16px, env(safe-area-inset-left));
+  padding-right: max(16px, env(safe-area-inset-right));
   display: flex;
   flex-direction: column;
+  box-sizing: border-box;
 }
 
 /* 顶部通知 Toast */

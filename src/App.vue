@@ -18,6 +18,10 @@
         <button class="top-icon-btn" title="查看打卡历程记录" @click="showLogsModal = true">
           <span class="icon">📜</span>
         </button>
+        <!-- 切换全屏沉浸模式 -->
+        <button class="top-icon-btn" :title="isFullscreen ? '退出全屏' : '全屏沉浸模式'" @click="handleToggleFullscreen">
+          <span class="icon">{{ isFullscreen ? '🗗' : '⛶' }}</span>
+        </button>
         <!-- 切换角色立绘快捷键 -->
         <button class="top-icon-btn" title="更换角色立绘" @click="showSettingsModal = true">
           <span class="icon">👤</span>
@@ -109,6 +113,26 @@ const toastRef = ref(null)
 const showNoteModal = ref(false)
 const showLogsModal = ref(false)
 const showSettingsModal = ref(false)
+const isFullscreen = ref(false)
+
+// 切换浏览器全屏
+function handleToggleFullscreen() {
+  const doc = document
+  const el = doc.documentElement
+  if (!doc.fullscreenElement && !doc.webkitFullscreenElement) {
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {})
+    } else if (el.webkitRequestFullscreen) {
+      el.webkitRequestFullscreen()
+    }
+  } else {
+    if (doc.exitFullscreen) {
+      doc.exitFullscreen().catch(() => {})
+    } else if (doc.webkitExitFullscreen) {
+      doc.webkitExitFullscreen()
+    }
+  }
+}
 
 // 当前游戏日（05:00 切日）
 const todayStr = computed(() => getGameDate())
@@ -227,6 +251,13 @@ onMounted(() => {
   // 校验并同步最新连击
   state.streak = calculateStreak(state.logs, todayStr.value)
   saveState()
+
+  // 监听全屏变动
+  const updateFullscreenStatus = () => {
+    isFullscreen.value = !!(document.fullscreenElement || document.webkitFullscreenElement)
+  }
+  document.addEventListener('fullscreenchange', updateFullscreenStatus)
+  document.addEventListener('webkitfullscreenchange', updateFullscreenStatus)
 })
 </script>
 
