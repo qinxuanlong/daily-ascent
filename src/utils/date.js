@@ -1,9 +1,24 @@
 /**
- * 日期工具
- * 使用 05:00 作为一天的切分点（"睡到睡"周期）
+ * 日期时间工具模块
+ * 采用 05:00 切日逻辑（05:00 前视为前一日，照顾熬夜复盘用户）
  */
 
-// 获取"游戏日"：05:00 前算前一天
+// 格式化 Date 为 YYYY-MM-DD
+export function formatDate(d) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+// 格式化时间为 HH:mm
+export function formatTime(d = new Date()) {
+  const hours = String(d.getHours()).padStart(2, '0')
+  const minutes = String(d.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
+// 获取游戏日（05:00 切日）
 export function getGameDate(now = new Date()) {
   const d = new Date(now)
   if (d.getHours() < 5) {
@@ -12,69 +27,68 @@ export function getGameDate(now = new Date()) {
   return formatDate(d)
 }
 
-// 格式化日期为 YYYY-MM-DD
-export function formatDate(d) {
-  const year = d.getFullYear()
-  const month = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-// 获取游戏日的星期几（0=周日, 1=周一, ...6=周六）
-export function getGameDayOfWeek(now = new Date()) {
+// 获取当前周的周一至周日日期列表
+export function getCurrentWeekDays(now = new Date()) {
   const d = new Date(now)
   if (d.getHours() < 5) {
     d.setDate(d.getDate() - 1)
   }
-  return d.getDay()
-}
+  const dow = d.getDay() // 0=周日, 1=周一
+  const diffToMonday = dow === 0 ? 6 : dow - 1
 
-// 判断是否工作日（周一到周五）
-export function isWorkday(now = new Date()) {
-  const dow = getGameDayOfWeek(now)
-  return dow >= 1 && dow <= 5
-}
+  const monday = new Date(d)
+  monday.setDate(d.getDate() - diffToMonday)
 
-// 判断是否周六
-export function isSaturday(now = new Date()) {
-  return getGameDayOfWeek(now) === 6
-}
+  const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  const weekDays = []
 
-// 判断是否周日
-export function isSunday(now = new Date()) {
-  return getGameDayOfWeek(now) === 0
-}
-
-// 获取本周一的日期
-export function getWeekMonday(now = new Date()) {
-  const d = new Date(now)
-  if (d.getHours() < 5) {
-    d.setDate(d.getDate() - 1)
+  for (let i = 0; i < 7; i++) {
+    const itemDate = new Date(monday)
+    itemDate.setDate(monday.getDate() + i)
+    const dateStr = formatDate(itemDate)
+    weekDays.push({
+      name: labels[i],
+      dayNum: itemDate.getDate(),
+      dateStr: dateStr
+    })
   }
-  const dow = d.getDay()
-  const diff = dow === 0 ? 6 : dow - 1
-  d.setDate(d.getDate() - diff)
-  return formatDate(d)
+
+  return weekDays
 }
 
-// 获取上一个工作日
-export function getPreviousWorkday(dateStr) {
-  const d = new Date(dateStr)
-  do {
-    d.setDate(d.getDate() - 1)
-  } while (d.getDay() === 0 || d.getDay() === 6)
-  return formatDate(d)
-}
+// 计算连续打卡天数（Streak）
+export function calculateStreak(logs = [], todayStr = getGameDate()) {
+  if (!logs || logs.length === 0) return 0
 
-// 判断两个日期是否是连续工作日
-export function isConsecutiveWorkday(lastDate, todayDate) {
-  if (!lastDate) return false
-  const prev = getPreviousWorkday(todayDate)
-  return lastDate === prev
-}
+  // 提取去重的所有打卡日期（降序排列）
+  const uniqueDates = Array.from(new Set(logs.map(log => log.date))).sort().reverse()
+  if (uniqueDates.length === 0) return 0
 
-// 短日期显示：01-10
-export function shortDate(dateStr) {
-  if (!dateStr) return ''
-  return dateStr.slice(5)
+  let streak = 0
+  let checkDate = new Date(todayStr)
+
+  // 如果今天未打卡，检查昨天是否打卡；若昨天也没打卡则连击归零
+  if (!uniqueDates.includes(todayStr)) {
+    const yesterday = new Date(checkDate)
+    yesterday.setDate(yesterday.getDate() - 1)
+    const yesterdayStr = formatDate(yesterday)
+    if (!uniqueDates.includes(yesterdayStr)) {
+      return 0
+    }
+    // 从昨天开始计算
+    checkDate = yesterday
+  }
+
+  // 逐日倒推连击
+  while (true) {
+    const currStr = formatDate(checkDate)
+    if (uniqueDates.includes(currStr)) {
+      streak++
+      checkDate.setDate(checkDate.getDate() - 1)
+    } else {
+      break
+    }
+  }
+
+  return streak
 }
