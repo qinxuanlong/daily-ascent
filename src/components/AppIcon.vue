@@ -139,6 +139,28 @@
       <line x1="12" y1="3" x2="12" y2="17" />
     </template>
 
+    <!-- play (播放/开启专注) -->
+    <template v-else-if="name === 'play'">
+      <polygon points="6 3 20 12 6 21 6 3" />
+    </template>
+
+    <!-- pause (暂停) -->
+    <template v-else-if="name === 'pause'">
+      <rect x="6" y="4" width="4" height="16" rx="1" />
+      <rect x="14" y="4" width="4" height="16" rx="1" />
+    </template>
+
+    <!-- stop (结束/收工) -->
+    <template v-else-if="name === 'stop'">
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+    </template>
+
+    <!-- copy (复制) -->
+    <template v-else-if="name === 'copy'">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </template>
+
     <!-- zen (极简居中模式) -->
     <template v-else-if="name === 'zen'">
       <circle cx="12" cy="12" r="9" />
@@ -171,6 +193,10 @@ export type IconName =
   | 'user'
   | 'desktop'
   | 'zen'
+  | 'play'
+  | 'pause'
+  | 'stop'
+  | 'copy'
 
 withDefaults(
   defineProps<{

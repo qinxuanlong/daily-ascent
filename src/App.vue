@@ -66,12 +66,12 @@
         </div>
         <TodayCheckInView
           :todos="state.todos"
+          :logs="state.logs"
           :exp="state.exp"
           :streak="currentStreak"
           @checkin="handleCheckIn"
           @open-add-todo="activeTab = 'todos'"
           @switch-tab="handleSwitchTab"
-          @save-todo-note="handleSaveTodoNote"
         />
       </section>
 
@@ -92,7 +92,7 @@
             @click="dashRightTab = 'history'"
           >
             <AppIcon name="history" :size="15" />
-            <span>历程统计 ({{ state.logs.length }})</span>
+            <span>成果时光轴 ({{ state.logs.length }})</span>
           </button>
         </div>
 
@@ -111,6 +111,7 @@
             :streak="currentStreak"
             :max-streak="state.maxStreak || 0"
             @delete-log="handleDeleteLog"
+            @toast="(msg: string) => toastRef?.show(msg)"
           />
         </div>
       </section>
@@ -119,16 +120,16 @@
     <!-- 主展示区：单栏/移动端/极简专注模式 -->
     <main v-else class="single-column-main">
       <transition name="view-fade" mode="out-in">
-        <!-- 视图 1：今日打卡（首页核心） -->
+        <!-- 视图 1：今日打卡专注发射台（首页核心） -->
         <TodayCheckInView
           v-if="activeTab === 'checkin'"
           :todos="state.todos"
+          :logs="state.logs"
           :exp="state.exp"
           :streak="currentStreak"
           @checkin="handleCheckIn"
           @open-add-todo="activeTab = 'todos'"
           @switch-tab="handleSwitchTab"
-          @save-todo-note="handleSaveTodoNote"
         />
 
         <!-- 视图 2：待办清单（全部任务管理） -->
@@ -141,13 +142,14 @@
           @toggle-todo="handleToggleTodo"
         />
 
-        <!-- 视图 3：历程统计（历史记录与周矩阵） -->
+        <!-- 视图 3：成果资产陈列馆（成果时光轴与大盘） -->
         <HistoryView
           v-else-if="activeTab === 'history'"
           :logs="state.logs"
           :streak="currentStreak"
           :max-streak="state.maxStreak || 0"
           @delete-log="handleDeleteLog"
+          @toast="(msg: string) => toastRef?.show(msg)"
         />
       </transition>
     </main>
@@ -218,7 +220,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import type { AppDataState, ActiveTab, TodoItem, CharacterType } from './types'
+import type { AppDataState, ActiveTab, TodoItem, CharacterType, CheckInLog } from './types'
 import { storage } from './stores/storage'
 import { getGameDate, formatTime, calculateStreak } from './utils/date'
 import { webdav } from './utils/webdav'
@@ -305,28 +307,35 @@ function saveState() {
   storage.set(state)
 }
 
-// 今日打卡核心触发
-function handleCheckIn(payload: { todoId: string; note: string }) {
+// 今日打卡核心触发 (包含真实专注时长与产出沉淀)
+function handleCheckIn(payload: {
+  todoId: string
+  note: string
+  durationMinutes: number
+  quantity?: string
+}) {
   const targetTodo = state.todos.find((t) => t.id === payload.todoId)
-  if (!targetTodo) return
-
-  targetTodo.completed = true
-  targetTodo.completedAt = new Date().toISOString()
-  if (payload.note) targetTodo.note = payload.note
-  if (targetTodo.type === 'habit') {
-    targetTodo.streak = (targetTodo.streak || 0) + 1
+  if (targetTodo) {
+    targetTodo.completed = true
+    targetTodo.completedAt = new Date().toISOString()
+    if (payload.note) targetTodo.note = payload.note
+    if (targetTodo.type === 'habit') {
+      targetTodo.streak = (targetTodo.streak || 0) + 1
+    }
+    targetTodo.updatedAt = Date.now()
   }
-  targetTodo.updatedAt = Date.now()
 
-  // 记录流水
-  const newLog = {
+  // 记录成果流水
+  const newLog: CheckInLog = {
     id: Date.now().toString(),
     date: todayStr.value,
     time: formatTime(),
-    todoId: targetTodo.id,
-    todoTitle: targetTodo.title,
+    todoId: targetTodo?.id,
+    todoTitle: targetTodo?.title,
     exp: 50,
-    note: payload.note || `${targetTodo.title} 打卡达成 ✦`
+    note: payload.note || `${targetTodo?.title || '专注心流'} 成果达成 ✦`,
+    durationMinutes: payload.durationMinutes,
+    quantity: payload.quantity
   }
 
   state.logs.unshift(newLog)
@@ -335,23 +344,13 @@ function handleCheckIn(payload: { todoId: string; note: string }) {
   state.maxStreak = Math.max(state.maxStreak || 0, state.streak)
 
   saveState()
-  toastRef.value?.show(`打卡成功！获得 50 EXP ✦`)
+  const durationDesc = payload.durationMinutes > 0 ? ` · 专注 ${payload.durationMinutes} 分钟` : ''
+  toastRef.value?.show(`成果入库！+50 EXP ✦${durationDesc}`)
 
   // 自动同步
   const syncCfg = webdav.getConfig()
   if (syncCfg.enabled && syncCfg.autoSync) {
     performSync(true)
-  }
-}
-
-// 补充待办心得
-function handleSaveTodoNote(payload: { todoId: string; note: string }) {
-  const target = state.todos.find((t) => t.id === payload.todoId)
-  if (target) {
-    target.note = payload.note
-    target.updatedAt = Date.now()
-    saveState()
-    toastRef.value?.show('心得备注已更新 ✦')
   }
 }
 
@@ -397,7 +396,11 @@ function handleToggleTodo(todo: TodoItem) {
     saveState()
     toastRef.value?.show('已撤销打卡状态')
   } else {
-    handleCheckIn({ todoId: todo.id, note: todo.note || '' })
+    handleCheckIn({
+      todoId: todo.id,
+      note: todo.note || '',
+      durationMinutes: 25
+    })
   }
 }
 
@@ -489,18 +492,10 @@ function handleClear() {
 
 // 键盘快捷键支持 (桌面端)
 function handleKeyDown(e: KeyboardEvent) {
-  // 避免在输入框中触发快捷键
   const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
   if (tag === 'input' || tag === 'textarea') return
 
-  if (e.code === 'Space') {
-    e.preventDefault()
-    // 触发当前未完成项打卡
-    const pending = state.todos.find((t) => !t.completed)
-    if (pending) {
-      handleCheckIn({ todoId: pending.id, note: pending.note || '' })
-    }
-  } else if (e.key === '1') {
+  if (e.key === '1') {
     activeTab.value = 'checkin'
   } else if (e.key === '2') {
     activeTab.value = 'todos'

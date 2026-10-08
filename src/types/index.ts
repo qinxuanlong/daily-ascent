@@ -6,6 +6,9 @@
 /** 待办打卡任务类型：每日习惯 (habit) | 当日临时待办 (once) */
 export type TodoType = 'habit' | 'once'
 
+/** 专注计时模式：25分番茄 | 45分深度 | 正向心流计时 */
+export type FocusTimerMode = 'pomodoro25' | 'pomodoro45' | 'stopwatch'
+
 /** 待办打卡任务数据模型 */
 export interface TodoItem {
   id: string
@@ -20,7 +23,7 @@ export interface TodoItem {
   updatedAt: number      // 变更时间戳，供 WebDAV 细粒度同步合并去重
 }
 
-/** 打卡历史记录流水模型 */
+/** 成果资产与打卡记录流水模型 */
 export interface CheckInLog {
   id: string
   date: string           // 业务归属日期 YYYY-MM-DD (基于 05:00 睡切日划分)
@@ -28,7 +31,9 @@ export interface CheckInLog {
   todoId?: string        // 关联的待办项 ID
   todoTitle?: string     // 关联的待办项标题快照
   exp: number            // 本次打卡赋予经验值 (+50/+100 等)
-  note: string           // 打卡心得备注
+  note: string           // 本次完成了什么 / 成果沉淀总结
+  durationMinutes?: number // 真实专注时长 (分钟)
+  quantity?: string      // 产出计数 (选填，如 "2题" / "1000字")
 }
 
 /** 角色立绘选项 */

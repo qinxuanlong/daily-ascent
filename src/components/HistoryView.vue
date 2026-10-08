@@ -1,34 +1,53 @@
 <template>
   <div class="history-view">
-    <!-- 1. 顶部统计大盘 -->
-    <div class="stats-overview-grid">
-      <div class="stat-box">
-        <div class="stat-icon-wrap streak-wrap">
-          <AppIcon name="flame" :size="20" />
+    <!-- 1. 顶部成果资产大盘 (The Asset Vault) -->
+    <div class="asset-vault-card">
+      <div class="vault-top-row">
+        <div class="vault-title-group">
+          <span class="vault-star">✦</span>
+          <div>
+            <h3 class="vault-title">成果资产陈列馆</h3>
+            <p class="vault-subtitle">真金白银的专注心流 · 每日产出复利积累</p>
+          </div>
         </div>
-        <div class="stat-text-stack">
-          <span class="stat-num">{{ streak }}<small>天</small></span>
-          <span class="stat-name">当前连续打卡</span>
-        </div>
+
+        <!-- 一键复制今日复盘简报按钮 -->
+        <button class="copy-report-btn" title="一键复制今日 Markdown 复盘简报" @click="handleCopyReport">
+          <AppIcon name="copy" :size="14" />
+          <span>复制今日成果简报</span>
+        </button>
       </div>
 
-      <div class="stat-box">
-        <div class="stat-icon-wrap max-wrap">
-          <AppIcon name="sparkles" :size="20" />
+      <!-- 核心资产指标三宫格 -->
+      <div class="vault-metrics-grid">
+        <div class="metric-box">
+          <div class="metric-icon-wrap duration-wrap">
+            <AppIcon name="clock" :size="18" />
+          </div>
+          <div class="metric-text-stack">
+            <span class="metric-value">{{ formatDurationText(todayTotalFocusMinutes) }}</span>
+            <span class="metric-label">今日专注投入</span>
+          </div>
         </div>
-        <div class="stat-text-stack">
-          <span class="stat-num">{{ maxStreak }}<small>天</small></span>
-          <span class="stat-name">历史最高连击</span>
-        </div>
-      </div>
 
-      <div class="stat-box">
-        <div class="stat-icon-wrap total-wrap">
-          <AppIcon name="history" :size="20" />
+        <div class="metric-box">
+          <div class="metric-icon-wrap outcome-wrap">
+            <AppIcon name="sparkles" :size="18" />
+          </div>
+          <div class="metric-text-stack">
+            <span class="metric-value">{{ todayLogs.length }}<small>条</small></span>
+            <span class="metric-label">今日沉淀成果</span>
+          </div>
         </div>
-        <div class="stat-text-stack">
-          <span class="stat-num">{{ logs.length }}<small>次</small></span>
-          <span class="stat-name">累计打卡次数</span>
+
+        <div class="metric-box">
+          <div class="metric-icon-wrap streak-wrap">
+            <AppIcon name="flame" :size="18" />
+          </div>
+          <div class="metric-text-stack">
+            <span class="metric-value">{{ streak }}<small>天</small></span>
+            <span class="metric-label">连续打卡心流</span>
+          </div>
         </div>
       </div>
     </div>
@@ -36,7 +55,7 @@
     <!-- 2. 本周打卡状态星轨矩阵 -->
     <div class="week-matrix-card">
       <div class="matrix-header">
-        <span class="matrix-title">本周星芒打卡矩阵</span>
+        <span class="matrix-title">本周星芒矩阵</span>
         <span class="matrix-tip">周一至周日 · 持续点亮</span>
       </div>
       <div class="week-days-row">
@@ -58,50 +77,69 @@
       </div>
     </div>
 
-    <!-- 3. 打卡流水时间轴列表 -->
+    <!-- 3. 高质感成果时光轴 (Outcome Timeline) -->
     <div class="logs-timeline-section">
       <div class="timeline-header">
-        <h3 class="section-title">历程流水记录</h3>
-        <span class="section-count">共 {{ logs.length }} 条记录</span>
+        <div class="timeline-title-group">
+          <h3 class="section-title">成果时光轴</h3>
+          <span class="section-count">共积累 {{ logs.length }} 条成果资产</span>
+        </div>
       </div>
 
       <div v-if="logs.length === 0" class="empty-logs">
         <span class="empty-sparkle">✦</span>
-        <p>暂无打卡流水记录，今天就开始你的第一次攀升吧！</p>
+        <p>暂无成果资产，开启一次 25 分钟专注，沉淀你的第一块成果吧！</p>
       </div>
 
       <div v-else class="timeline-list">
-        <div v-for="log in sortedLogs" :key="log.id" class="timeline-card">
+        <div v-for="log in sortedLogs" :key="log.id" class="outcome-card-item">
+          <!-- 左侧时间线光柱指示 -->
           <div class="timeline-indicator">
             <div class="indicator-dot"></div>
             <div class="indicator-line"></div>
           </div>
 
-          <div class="timeline-content">
-            <div class="content-top">
-              <span class="log-date">{{ log.date }}</span>
-              <span class="log-time">{{ log.time }}</span>
-              <span class="exp-badge">+{{ log.exp || 50 }} EXP</span>
-              <button
-                class="log-delete-btn"
-                title="删除此条记录"
-                @click="handleDelete(log.id)"
-              >
-                <AppIcon name="trash" :size="13" />
-              </button>
+          <!-- 右侧卡片主体 -->
+          <div class="outcome-card-body">
+            <div class="card-top-bar">
+              <div class="time-meta-row">
+                <span class="item-date">{{ log.date }}</span>
+                <span class="item-time">{{ log.time }}</span>
+                <!-- 真实专注时长标签 -->
+                <span v-if="log.durationMinutes" class="duration-chip">
+                  <AppIcon name="clock" :size="11" />
+                  <span>{{ log.durationMinutes }}m 专注</span>
+                </span>
+                <!-- 产出量化计数 (若有) -->
+                <span v-if="log.quantity" class="quantity-chip">
+                  <span>{{ log.quantity }}</span>
+                </span>
+              </div>
+
+              <div class="card-top-right">
+                <span class="exp-badge">+{{ log.exp || 50 }} EXP</span>
+                <button
+                  class="log-delete-btn"
+                  title="删除此条成果"
+                  @click="handleDelete(log.id)"
+                >
+                  <AppIcon name="trash" :size="13" />
+                </button>
+              </div>
             </div>
 
-            <div v-if="log.todoTitle" class="log-todo-title">
-              <AppIcon name="check" :size="13" />
-              <span>{{ log.todoTitle }}</span>
+            <!-- 目标/任务标题 -->
+            <div v-if="log.todoTitle" class="item-target-title">
+              <AppIcon name="target" :size="13" />
+              <span>目标：{{ log.todoTitle }}</span>
             </div>
 
-            <p v-if="log.note" class="log-note">
-              {{ log.note }}
-            </p>
-            <p v-else class="log-note is-empty">
-              (无心得备注)
-            </p>
+            <!-- 核心成果沉淀内容 -->
+            <div class="outcome-quote-box">
+              <p class="outcome-text">
+                {{ log.note }}
+              </p>
+            </div>
           </div>
         </div>
       </div>
@@ -123,6 +161,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'delete-log', id: string): void
+  (e: 'toast', message: string): void
 }>()
 
 const todayStr = computed(() => getGameDate())
@@ -131,6 +170,20 @@ const weekDays = computed(() => getCurrentWeekDays())
 const checkedDates = computed(() => {
   return new Set(props.logs.map((log) => log.date))
 })
+
+const todayLogs = computed(() => {
+  return props.logs.filter((log) => log.date === todayStr.value)
+})
+
+const todayTotalFocusMinutes = computed(() => {
+  return todayLogs.value.reduce((acc, cur) => acc + (cur.durationMinutes || 0), 0)
+})
+
+function formatDurationText(mins: number): string {
+  if (mins < 60) return `${mins}m`
+  const h = (mins / 60).toFixed(1)
+  return `${h}h`
+}
 
 const sortedLogs = computed(() => {
   return [...props.logs].sort((a, b) => {
@@ -141,8 +194,46 @@ const sortedLogs = computed(() => {
 })
 
 function handleDelete(id: string) {
-  if (window.confirm('确定要删除这条打卡记录吗？删除后连击数可能会重新核算。')) {
+  if (window.confirm('确定要删除这条成果资产记录吗？删除后对应的经验与统计将相应扣减。')) {
     emit('delete-log', id)
+  }
+}
+
+// 一键复制今日 Markdown 复盘简报
+function handleCopyReport() {
+  if (todayLogs.value.length === 0) {
+    emit('toast', '今日尚未沉淀成果，先开启一次专注吧 ✦')
+    return
+  }
+
+  const lines = [
+    `# 📅 Daily Ascent 成果简报 · ${todayStr.value}`,
+    `- **今日总专注时长**：${todayTotalFocusMinutes.value} 分钟 (${formatDurationText(todayTotalFocusMinutes.value)})`,
+    `- **沉淀成果总数**：${todayLogs.value.length} 条`,
+    `- **连续打卡心流**：${props.streak} 天`,
+    '',
+    '## ✦ 核心产出清单'
+  ]
+
+  todayLogs.value.forEach((item, idx) => {
+    const dur = item.durationMinutes ? `[${item.durationMinutes}m] ` : ''
+    const qty = item.quantity ? `(${item.quantity}) ` : ''
+    lines.push(`${idx + 1}. **${item.todoTitle || '专注任务'}** ${dur}${qty}`)
+    lines.push(`   > ${item.note}`)
+  })
+
+  lines.push('', '---', '*Daily Ascent · 有产出就是升级*')
+
+  const reportText = lines.join('\n')
+
+  if (navigator?.clipboard?.writeText) {
+    navigator.clipboard.writeText(reportText).then(() => {
+      emit('toast', '已复制今日成果复盘简报 ✦ 可直接粘贴至Obsidian/周报')
+    }).catch(() => {
+      emit('toast', '复制失败，请重试')
+    })
+  } else {
+    emit('toast', '当前浏览器不支持自动复制')
   }
 }
 </script>
@@ -155,33 +246,103 @@ function handleDelete(id: string) {
   gap: 18px;
 }
 
-/* 顶部统计卡 */
-.stats-overview-grid {
+/* 顶部成果资产大盘 */
+.asset-vault-card {
+  background: linear-gradient(165deg, rgba(16, 29, 60, 0.85) 0%, rgba(9, 17, 38, 0.95) 100%);
+  border: 1px solid rgba(243, 216, 130, 0.35);
+  border-radius: 20px;
+  padding: 18px 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(14px);
+}
+
+.vault-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.vault-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vault-star {
+  font-size: 18px;
+  color: #f3d882;
+  filter: drop-shadow(0 0 6px rgba(243, 216, 130, 0.8));
+}
+
+.vault-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.vault-subtitle {
+  font-size: 11px;
+  color: #9ab2d5;
+}
+
+.copy-report-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(243, 216, 130, 0.15);
+  border: 1px solid rgba(243, 216, 130, 0.4);
+  color: #fff0bd;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.copy-report-btn:hover {
+  background: rgba(243, 216, 130, 0.28);
+  border-color: #f3d882;
+  transform: translateY(-1px);
+}
+
+.vault-metrics-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.metric-box {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
   gap: 10px;
 }
 
-.stat-box {
-  background: rgba(14, 25, 52, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  padding: 12px 10px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  gap: 8px;
-  backdrop-filter: blur(12px);
-}
-
-.stat-icon-wrap {
+.metric-icon-wrap {
   width: 36px;
   height: 36px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+}
+
+.duration-wrap {
+  background: rgba(94, 234, 212, 0.15);
+  color: #5eead4;
+  border: 1px solid rgba(94, 234, 212, 0.3);
+}
+
+.outcome-wrap {
+  background: rgba(243, 216, 130, 0.15);
+  color: #f3d882;
+  border: 1px solid rgba(243, 216, 130, 0.3);
 }
 
 .streak-wrap {
@@ -190,38 +351,25 @@ function handleDelete(id: string) {
   border: 1px solid rgba(252, 165, 165, 0.3);
 }
 
-.max-wrap {
-  background: rgba(243, 216, 130, 0.15);
-  color: #f3d882;
-  border: 1px solid rgba(243, 216, 130, 0.3);
-}
-
-.total-wrap {
-  background: rgba(94, 234, 212, 0.15);
-  color: #5eead4;
-  border: 1px solid rgba(94, 234, 212, 0.3);
-}
-
-.stat-text-stack {
+.metric-text-stack {
   display: flex;
   flex-direction: column;
-  gap: 2px;
 }
 
-.stat-num {
-  font-size: 18px;
+.metric-value {
+  font-size: 16px;
   font-weight: 800;
   color: #ffffff;
 }
 
-.stat-num small {
+.metric-value small {
   font-size: 11px;
   font-weight: normal;
   color: #9ab2d5;
   margin-left: 2px;
 }
 
-.stat-name {
+.metric-label {
   font-size: 10px;
   color: #657b9e;
 }
@@ -309,7 +457,7 @@ function handleDelete(id: string) {
   color: #ffffff;
 }
 
-/* 时间轴 */
+/* 时光轴 */
 .logs-timeline-section {
   display: flex;
   flex-direction: column;
@@ -352,17 +500,23 @@ function handleDelete(id: string) {
 .timeline-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 
-.timeline-card {
+.outcome-card-item {
   display: flex;
   gap: 12px;
   background: rgba(14, 25, 52, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 14px;
-  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px 16px;
   backdrop-filter: blur(12px);
+  transition: all 0.2s ease;
+}
+
+.outcome-card-item:hover {
+  border-color: rgba(243, 216, 130, 0.35);
+  background: rgba(16, 29, 60, 0.85);
 }
 
 .timeline-indicator {
@@ -387,28 +541,62 @@ function handleDelete(id: string) {
   margin-top: 4px;
 }
 
-.timeline-content {
+.outcome-card-body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.content-top {
+.card-top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.time-meta-row {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.log-date {
+.item-date {
   font-size: 13px;
   font-weight: 700;
   color: #ffffff;
 }
 
-.log-time {
+.item-time {
   font-size: 11px;
   color: #9ab2d5;
+}
+
+.duration-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #5eead4;
+  background: rgba(94, 234, 212, 0.15);
+  border: 1px solid rgba(94, 234, 212, 0.3);
+  padding: 2px 7px;
+  border-radius: 8px;
+}
+
+.quantity-chip {
+  font-size: 11px;
+  color: #fff0bd;
+  background: rgba(243, 216, 130, 0.15);
+  padding: 2px 7px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.card-top-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .exp-badge {
@@ -418,7 +606,6 @@ function handleDelete(id: string) {
   color: #f3d882;
   padding: 2px 6px;
   border-radius: 8px;
-  margin-left: auto;
 }
 
 .log-delete-btn {
@@ -436,29 +623,26 @@ function handleDelete(id: string) {
   background: rgba(239, 68, 68, 0.15);
 }
 
-.log-todo-title {
+.item-target-title {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 12px;
   color: #5eead4;
   font-weight: 600;
 }
 
-.log-note {
-  font-size: 12px;
-  color: #9ab2d5;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 6px 10px;
-  border-radius: 8px;
-  margin-top: 2px;
-  line-height: 1.4;
+.outcome-quote-box {
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 3px solid #f3d882;
+  padding: 8px 12px;
+  border-radius: 0 8px 8px 0;
 }
 
-.log-note.is-empty {
-  font-style: italic;
-  color: #657b9e;
-  background: transparent;
-  padding: 0;
+.outcome-text {
+  font-size: 13px;
+  color: #f1f5f9;
+  line-height: 1.5;
+  word-break: break-word;
 }
 </style>
