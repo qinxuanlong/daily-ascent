@@ -8,9 +8,7 @@ const ASSETS_TO_CACHE = [
   './icon-192.png',
   './icon-512.png',
   './apple-touch-icon.png',
-  './bg_scenery.jpg',
-  './char_venti.png',
-  './char_aether.png'
+  './bg_scenery.jpg'
 ]
 
 // 安装并预缓存资源
