@@ -18,8 +18,8 @@ export interface WebDavStoredConfig {
 
 export const defaultWebdavConfig: WebDavStoredConfig = {
   enabled: true,
-  username: (import.meta.env.VITE_WEBDAV_USERNAME as string) || '',
-  password: (import.meta.env.VITE_WEBDAV_PASSWORD as string) || '',
+  username: (import.meta.env.VITE_WEBDAV_USERNAME as string) || '1470681411@qq.com',
+  password: (import.meta.env.VITE_WEBDAV_PASSWORD as string) || 'amw7h255h7dr423u',
   serverUrl: 'https://dav.jianguoyun.com/dav/',
   appDir: 'daily-ascent',
   autoSync: true,
@@ -38,13 +38,19 @@ export const webdav = {
     try {
       const raw = localStorage.getItem(WEBDAV_STORAGE_KEY)
       const stored = raw ? JSON.parse(raw) : {}
-      const envUser = (import.meta.env.VITE_WEBDAV_USERNAME as string) || ''
-      const envPass = (import.meta.env.VITE_WEBDAV_PASSWORD as string) || ''
+      const fallbackUser = (import.meta.env.VITE_WEBDAV_USERNAME as string) || defaultWebdavConfig.username
+      const fallbackPass = (import.meta.env.VITE_WEBDAV_PASSWORD as string) || defaultWebdavConfig.password
+
+      // 若之前本地存储残留了无效的 'admin' 或为空，则自动替换为预置的有效凭据
+      const isValidStoredUser = stored.username && stored.username !== 'admin'
+      const username = isValidStoredUser ? stored.username : fallbackUser
+      const password = isValidStoredUser && stored.password ? stored.password : fallbackPass
+
       return {
         ...defaultWebdavConfig,
         ...stored,
-        ...(envUser ? { username: envUser } : {}),
-        ...(envPass ? { password: envPass } : {})
+        username,
+        password
       }
     } catch {
       return { ...defaultWebdavConfig }
