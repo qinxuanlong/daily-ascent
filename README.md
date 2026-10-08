@@ -76,16 +76,20 @@ npm run build
 ```
 构建产物输出于 `dist/` 目录。
 
-### 4. 同步并构建 Android APK
+### 4. Android 相关 npm 命令
 ```bash
-# 编译前端并同步至 Android 工程
+# 1. 一键触发 GitHub 云端打包并发布到 Releases (推荐，零配置直接生成 APK 供下载)
+npm run release
+
+# 2. 本地一键打包 APK (生成于 dist-apk/Daily-Ascent.apk)
+npm run build:apk
+
+# 3. 编译前端并同步至 Android 工程
 npm run cap:sync
 
-# 进入 Android 目录打包 APK (需要本地 Java 环境)
-cd android
-./gradlew assembleDebug
+# 4. 在 Android Studio 中打开工程
+npm run cap:open
 ```
-生成的安装包位于：`android/app/build/outputs/apk/debug/app-debug.apk`。
 
 ---
 
@@ -93,11 +97,16 @@ cd android
 
 本项目已配置 GitHub Actions 自动化编译工作流（`.github/workflows/build-apk.yml`）：
 
-1. **自动发布**：在本地或 GitHub 打上版本标签并推送：
+1. **一键自动发布（推荐）**：
+   在终端直接运行：
    ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
+   npm run release
    ```
-   GitHub Actions 将在云端自动编译生成 **`Daily-Ascent.apk`**，并在仓库的 **Releases** 页面发布，任何人都可直接下载安装至安卓手机！
-2. **手动触发**：也可随时在 GitHub 仓库的 **Actions** 标签页，找到 **"构建并发布 Android APK"** 点击 **Run workflow** 即可在几分钟内下载生成的 APK 安装包。
+   脚本会自动递增版本号、创建并推送 Git 标签至 GitHub，同时唤起 GitHub Actions 云端打包，2~3 分钟内即可在 [Releases](https://github.com/qinxuanlong/daily-ascent/releases) 页面生成并下载 **`Daily-Ascent.apk`**！
+
+   *(注：也可指定版本号发布，如 `npm run release 1.0.1`)*
+
+2. **手动网页触发**：
+   随时在 GitHub 仓库的 **Actions** 标签页，找到 **"构建并发布 Android APK"** 点击 **Run workflow** 即可在几分钟内下载生成的 APK 安装包。
+
 

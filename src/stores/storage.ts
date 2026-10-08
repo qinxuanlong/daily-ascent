@@ -1,6 +1,6 @@
 /**
  * 本地存储服务层 (TypeScript 强类型)
- * 封装 localStorage，管理打卡记录、经验值、待办任务集、连续天数及立绘设置
+ * 封装 localStorage，管理打卡记录、经验值、待办任务集、连续天数及系统配置
  * 内置 05:00 睡到睡切日跨日重置机制
  */
 import type { AppDataState, CheckInLog, TodoItem } from '../types'
@@ -56,9 +56,6 @@ export const defaultData: AppDataState = {
   exp: 0, // 初始经验由专注日志严格计算
   streak: 0, // 当前连续打卡天数
   maxStreak: 0, // 历史最高连击
-  selectedCharacter: 'venti', // 默认立绘
-  characterCustomImg: '', // 用户自定义立绘 Base64
-  characterTitle: '温迪', // 称号
   todos: defaultTodos,
   logs: [], // 打卡历史流水
   lastActiveDate: getGameDate() // 上次业务日

@@ -125,7 +125,7 @@
       <line x1="6" y1="6" x2="18" y2="18" />
     </template>
 
-    <!-- user (角色立绘) -->
+    <!-- user (用户/个人设置) -->
     <template v-else-if="name === 'user'">
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
       <circle cx="12" cy="7" r="4" />

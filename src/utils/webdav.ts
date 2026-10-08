@@ -235,9 +235,6 @@ export const webdav = {
     return {
       ...localData,
       exp: finalExp,
-      selectedCharacter: localData.selectedCharacter || cloudData.selectedCharacter || 'venti',
-      characterTitle: localData.characterTitle || cloudData.characterTitle || '温迪',
-      characterCustomImg: localData.characterCustomImg || cloudData.characterCustomImg || '',
       maxStreak: Math.max(localData.maxStreak || 0, cloudData.maxStreak || 0),
       todos: mergedTodos,
       logs: mergedLogs,

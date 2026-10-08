@@ -48,17 +48,14 @@ export interface CheckInLog {
   deletedAt?: number     // 软删除时间戳
 }
 
-/** 角色立绘选项 */
-export type CharacterType = 'venti' | 'aether' | 'custom'
-
 /** 应用全局本地存储与运行状态模型 */
 export interface AppDataState {
   exp: number
   streak: number
   maxStreak: number
-  selectedCharacter: CharacterType
-  characterCustomImg: string
-  characterTitle: string
+  selectedCharacter?: string
+  characterCustomImg?: string
+  characterTitle?: string
   todos: TodoItem[]
   logs: CheckInLog[]
   lastActiveDate: string // 上次活跃日期 (供跨日 05:00 自动重置计算)

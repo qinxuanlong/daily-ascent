@@ -9,7 +9,10 @@
     "preview": "vite preview",
     "deploy": "vue-tsc --noEmit && vite build && gh-pages -d dist",
     "cap:sync": "npm run build && cap sync android",
-    "cap:open": "cap open android"
+    "cap:open": "cap open android",
+    "build:apk": "node scripts/build-apk.js",
+    "release": "node scripts/release.js",
+    "release:apk": "node scripts/release.js"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.3",

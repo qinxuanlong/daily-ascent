@@ -9,7 +9,7 @@
         <span class="app-star-icon">✦</span>
         <div class="title-text-stack">
           <h1 class="app-title">每日攀升</h1>
-          <div class="app-subtitle">Lv.{{ currentLevel }} · {{ state.characterTitle }}</div>
+          <div class="app-subtitle">Lv.{{ currentLevel }} · 专注心流</div>
         </div>
       </div>
 
@@ -198,11 +198,6 @@
     <!-- 设置与数据管理弹窗 -->
     <SettingsModal
       :show="showSettingsModal"
-      :current-type="state.selectedCharacter"
-      :custom-img="state.characterCustomImg"
-      :current-title="state.characterTitle"
-      @select-char="handleSelectChar"
-      @upload-char="handleUploadChar"
       @export="handleExport"
       @import="handleImport"
       @clear="handleClear"
@@ -224,7 +219,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import type { AppDataState, ActiveTab, TodoItem, CharacterType, CheckInLog, LogSource } from './types'
+import type { AppDataState, ActiveTab, TodoItem, CheckInLog, LogSource } from './types'
 import { storage, recalcExp } from './stores/storage'
 import { getGameDate, getGameDateByStart, formatTime, calculateStreak, calculateHabitStreak } from './utils/date'
 import { webdav } from './utils/webdav'
@@ -495,21 +490,6 @@ function handleManualSync() {
 
 function handleSyncFromModal(callback: (success: boolean, message?: string) => void) {
   performSync(false, callback)
-}
-
-function handleSelectChar(payload: { type: CharacterType; title: string }) {
-  state.selectedCharacter = payload.type
-  state.characterTitle = payload.title
-  saveState()
-  toastRef.value?.show(`已切换为：${payload.title}`)
-}
-
-function handleUploadChar(base64Data: string) {
-  state.selectedCharacter = 'custom'
-  state.characterCustomImg = base64Data
-  state.characterTitle = '自定义伙伴'
-  saveState()
-  toastRef.value?.show('自定义立绘更新成功！')
 }
 
 function handleExport() {

@@ -12,49 +12,8 @@
       </div>
 
       <div class="modal-body">
-        <!-- 1. 角色立绘切换 -->
+        <!-- 1. 坚果云 WebDAV 云同步 -->
         <div class="section-title">
-          <AppIcon name="user" :size="14" />
-          <span>角色立绘与主题</span>
-        </div>
-        <div class="char-options">
-          <div
-            class="char-item"
-            :class="{ active: currentType === 'aether' }"
-            @click="selectChar('aether', '旅行者')"
-          >
-            <div class="char-avatar-box">
-              <img :src="aetherAvatar" alt="旅行者" class="char-thumb" draggable="false" />
-            </div>
-            <span class="char-name">旅行者 (空)</span>
-          </div>
-
-          <div
-            class="char-item"
-            :class="{ active: currentType === 'venti' }"
-            @click="selectChar('venti', '温迪')"
-          >
-            <div class="char-avatar-box">
-              <img :src="ventiAvatar" alt="温迪" class="char-thumb" draggable="false" />
-            </div>
-            <span class="char-name">风色诗人 (温迪)</span>
-          </div>
-
-          <!-- 自定义上传 -->
-          <label class="char-item upload-box" :class="{ active: currentType === 'custom' }">
-            <input type="file" accept="image/*" class="file-input" @change="handleFileUpload" />
-            <div class="char-avatar-box upload-avatar">
-              <span v-if="!customImg" class="upload-icon">
-                <AppIcon name="plus" :size="18" />
-              </span>
-              <img v-else :src="customImg" alt="自定义" class="char-thumb" draggable="false" />
-            </div>
-            <span class="char-name">自定义立绘</span>
-          </label>
-        </div>
-
-        <!-- 2. 坚果云 WebDAV 云同步 -->
-        <div class="section-title" style="margin-top: 18px;">
           <AppIcon name="cloud" :size="14" />
           <span>坚果云 WebDAV 跨端同步</span>
           <span v-if="syncConfig.lastSyncTime" class="sync-time-badge">
@@ -223,28 +182,19 @@ import {
   sendTestNotification,
   type NotificationConfig
 } from '../utils/notification'
-import type { CharacterType } from '../types'
 import AppIcon from './AppIcon.vue'
 
 const props = withDefaults(
   defineProps<{
     show?: boolean
-    currentType?: CharacterType
-    customImg?: string
-    currentTitle?: string
   }>(),
   {
-    show: false,
-    currentType: 'venti',
-    customImg: '',
-    currentTitle: '温迪'
+    show: false
   }
 )
 
 const emit = defineEmits<{
   (e: 'close'): void
-  (e: 'select-char', payload: { type: CharacterType; title: string }): void
-  (e: 'upload-char', dataUrl: string): void
   (e: 'export'): void
   (e: 'import', file: File): void
   (e: 'clear'): void
@@ -252,10 +202,6 @@ const emit = defineEmits<{
   (e: 'trigger-sync', callback: (success: boolean, message?: string) => void): void
   (e: 'toast', message: string): void
 }>()
-
-const baseUrl = import.meta.env.BASE_URL || './'
-const aetherAvatar = `${baseUrl}avatar_aether.png`
-const ventiAvatar = `${baseUrl}avatar_venti.png`
 
 const syncConfig = reactive(webdav.getConfig())
 const testing = ref(false)
@@ -336,23 +282,6 @@ async function handleTriggerSync() {
   } catch {
     syncing.value = false
   }
-}
-
-function selectChar(type: CharacterType, title: string) {
-  emit('select-char', { type, title })
-}
-
-function handleFileUpload(e: Event) {
-  const target = e.target as HTMLInputElement
-  const file = target.files?.[0]
-  if (!file) return
-  const reader = new FileReader()
-  reader.onload = (event) => {
-    if (event.target?.result) {
-      emit('upload-char', event.target.result as string)
-    }
-  }
-  reader.readAsDataURL(file)
 }
 
 function handleImportFile(e: Event) {
@@ -445,64 +374,6 @@ function handleClearClick() {
   font-weight: 600;
   color: #eed588;
   margin-bottom: 10px;
-}
-
-.char-options {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
-
-.char-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 8px 4px;
-  background: rgba(25, 34, 58, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.char-item:hover {
-  background: rgba(35, 46, 75, 0.6);
-  border-color: rgba(243, 216, 130, 0.3);
-}
-
-.char-item.active {
-  border-color: #f3d882;
-  background: rgba(243, 216, 130, 0.12);
-  box-shadow: 0 0 10px rgba(243, 216, 130, 0.3);
-}
-
-.char-avatar-box {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: #0d1222;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 6px;
-  border: 1px solid rgba(243, 216, 130, 0.3);
-}
-
-.char-thumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.upload-icon {
-  color: #f3d882;
-}
-
-.char-name {
-  font-size: 11px;
-  color: #e2e8f0;
-  text-align: center;
 }
 
 .file-input {
