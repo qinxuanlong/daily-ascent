@@ -160,7 +160,47 @@
           </label>
         </div>
 
-        <!-- 5. 危险区域 -->
+        <!-- 5. 版本信息与检查更新 -->
+        <div class="section-title" style="margin-top: 18px;">
+          <AppIcon name="sparkles" :size="14" />
+          <span>版本与更新</span>
+          <span class="version-badge">v{{ currentAppVersion }}</span>
+        </div>
+        <div class="update-box">
+          <div class="update-info-row">
+            <span class="update-status-text">{{ updateStatusMessage }}</span>
+            <button
+              class="test-btn check-update-btn"
+              :disabled="checkingUpdate"
+              @click="handleCheckUpdateManual"
+            >
+              <span class="update-icon" :class="{ rotating: checkingUpdate }">
+                <AppIcon name="refresh" :size="12" />
+              </span>
+              <span>{{ checkingUpdate ? '检测中...' : '检查更新' }}</span>
+            </button>
+          </div>
+
+          <!-- 发现新版本时的提示卡片 -->
+          <div v-if="newVersionInfo && newVersionInfo.hasUpdate" class="new-version-card">
+            <div class="new-version-header">
+              <span class="new-tag">发现新版本</span>
+              <span class="new-version-num">v{{ newVersionInfo.latestVersion }}</span>
+            </div>
+            <div v-if="newVersionInfo.releaseNotes" class="new-version-notes">
+              {{ newVersionInfo.releaseNotes }}
+            </div>
+            <a
+              :href="newVersionInfo.downloadUrl"
+              target="_blank"
+              class="action-btn download-apk-btn"
+            >
+              ⬇️ 下载新版本 APK
+            </a>
+          </div>
+        </div>
+
+        <!-- 6. 危险区域 -->
         <div class="section-title danger-title" style="margin-top: 18px;">
           <AppIcon name="trash" :size="14" />
           <span>危险操作</span>
@@ -182,6 +222,7 @@ import {
   sendTestNotification,
   type NotificationConfig
 } from '../utils/notification'
+import { checkForUpdate, APP_VERSION, type UpdateCheckResult } from '../utils/updater'
 import AppIcon from './AppIcon.vue'
 
 const props = withDefaults(
@@ -192,6 +233,11 @@ const props = withDefaults(
     show: false
   }
 )
+
+const currentAppVersion = APP_VERSION
+const checkingUpdate = ref(false)
+const updateStatusMessage = ref(`当前版本: v${APP_VERSION}`)
+const newVersionInfo = ref<UpdateCheckResult | null>(null)
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -250,6 +296,27 @@ async function handleTestNotification() {
     }
   } finally {
     testingNotify.value = false
+  }
+}
+
+async function handleCheckUpdateManual() {
+  checkingUpdate.value = true
+  updateStatusMessage.value = '正在检测最新版本...'
+  try {
+    const res = await checkForUpdate(currentAppVersion)
+    newVersionInfo.value = res
+    if (res.hasUpdate) {
+      updateStatusMessage.value = `发现新版本 v${res.latestVersion}！`
+      emit('toast', `发现新版本 v${res.latestVersion}，可点击下方按钮下载 ✦`)
+    } else {
+      updateStatusMessage.value = `已是最新版本 (v${currentAppVersion})`
+      emit('toast', '当前已是最新版本，无需更新！')
+    }
+  } catch {
+    updateStatusMessage.value = '检测失败，请检查网络连接'
+    emit('toast', '检测更新失败，请稍后重试')
+  } finally {
+    checkingUpdate.value = false
   }
 }
 
@@ -676,5 +743,104 @@ function handleClearClick() {
 .notify-hint {
   font-size: 10px;
   color: #94a3b8;
+}
+
+.version-badge {
+  font-size: 11px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  margin-left: 6px;
+}
+
+.update-box {
+  background: rgba(20, 28, 48, 0.6);
+  border: 1px solid rgba(243, 216, 130, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.update-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.update-status-text {
+  font-size: 11px;
+  color: #cbd5e1;
+}
+
+.check-update-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.update-icon.rotating {
+  display: inline-flex;
+  animation: spin 1s linear infinite;
+}
+
+.new-version-card {
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.new-version-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.new-tag {
+  font-size: 10px;
+  background: #38bdf8;
+  color: #0b1120;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.new-version-num {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.new-version-notes {
+  font-size: 11px;
+  color: #94a3b8;
+  white-space: pre-wrap;
+  line-height: 1.4;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.download-apk-btn {
+  width: 100%;
+  text-decoration: none;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.25) 0%, rgba(59, 130, 246, 0.3) 100%);
+  border-color: rgba(56, 189, 248, 0.6);
+  color: #e0f2fe;
+  font-weight: 600;
+}
+
+.download-apk-btn:hover {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.4) 0%, rgba(59, 130, 246, 0.45) 100%);
+  border-color: #38bdf8;
+  color: #ffffff;
 }
 </style>

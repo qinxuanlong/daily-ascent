@@ -224,6 +224,7 @@ import { storage, recalcExp } from './stores/storage'
 import { getGameDate, getGameDateByStart, formatTime, calculateStreak, calculateHabitStreak } from './utils/date'
 import { webdav } from './utils/webdav'
 import { getNotificationConfig, setupDailyReminder } from './utils/notification'
+import { checkForUpdate } from './utils/updater'
 
 // 组件引入
 import AppIcon from './components/AppIcon.vue'
@@ -549,6 +550,13 @@ onMounted(() => {
   if (notifyCfg.enabled) {
     setupDailyReminder(notifyCfg)
   }
+
+  // 启动时静默检查更新
+  checkForUpdate().then((res) => {
+    if (res.hasUpdate) {
+      toastRef.value?.show(`🎉 发现新版本 v${res.latestVersion}！可在设置中查看更新`)
+    }
+  }).catch(() => {})
 })
 
 onUnmounted(() => {
