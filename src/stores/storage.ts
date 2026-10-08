@@ -3,10 +3,20 @@
  * 封装 localStorage，管理打卡记录、经验值、待办任务集、连续天数及立绘设置
  * 内置 05:00 睡到睡切日跨日重置机制
  */
-import type { AppDataState, TodoItem } from '../types'
+import type { AppDataState, CheckInLog, TodoItem } from '../types'
 import { getGameDate } from '../utils/date'
 
 const STORAGE_KEY = 'daily-ascent-genshin-data'
+
+/**
+ * 经验值重新计算：必须根据未软删除且 source === 'focus' 的真实专注日志重算
+ * 补记日志 (source === 'manual') 不给经验，不参与计算
+ */
+export function recalcExp(logs: CheckInLog[]): number {
+  return (logs || [])
+    .filter((l) => !l.deleted && l.source === 'focus')
+    .reduce((sum, l) => sum + (l.exp || 0), 0)
+}
 
 export const defaultTodos: TodoItem[] = [
   {
@@ -43,9 +53,9 @@ export const defaultTodos: TodoItem[] = [
 
 // 默认初始数据
 export const defaultData: AppDataState = {
-  exp: 170, // 初始经验 (Lv.2 70/100 EXP)
-  streak: 1, // 当前连续打卡天数
-  maxStreak: 1, // 历史最高连击
+  exp: 0, // 初始经验由专注日志严格计算
+  streak: 0, // 当前连续打卡天数
+  maxStreak: 0, // 历史最高连击
   selectedCharacter: 'venti', // 默认立绘
   characterCustomImg: '', // 用户自定义立绘 Base64
   characterTitle: '温迪', // 称号
@@ -55,7 +65,7 @@ export const defaultData: AppDataState = {
 }
 
 export const storage = {
-  // 获取本地数据（带默认值保底与跨日 05:00 自动重置）
+  // 获取本地数据（带历史迁移、严格经验重算与跨日 05:00 自动重置）
   get(): AppDataState {
     const todayGameDate = getGameDate()
     let data: AppDataState
@@ -75,10 +85,36 @@ export const storage = {
       data = JSON.parse(JSON.stringify(defaultData))
     }
 
-    // 确保 todos 存在
+    // 确保 todos 存在并迁移字段
     if (!Array.isArray(data.todos) || data.todos.length === 0) {
       data.todos = JSON.parse(JSON.stringify(defaultTodos))
+    } else {
+      data.todos.forEach((todo) => {
+        if (!todo.updatedAt) todo.updatedAt = Date.now()
+      })
     }
+
+    // 历史日志数据平滑迁移（兼容旧版本数据）
+    if (Array.isArray(data.logs)) {
+      data.logs.forEach((log) => {
+        if (!log.source) {
+          log.source = (log.durationMinutes && log.durationMinutes > 0) ? 'focus' : 'manual'
+        }
+        if (!log.updatedAt) {
+          log.updatedAt = Date.now()
+        }
+        // 若为补记日志，严格保证不含经验与专注时长
+        if (log.source === 'manual') {
+          log.exp = 0
+          log.durationMinutes = 0
+        }
+      })
+    } else {
+      data.logs = []
+    }
+
+    // 核心重算：经验值强制根据真实专注日志统计，杜绝残留数值
+    data.exp = recalcExp(data.logs)
 
     // 跨日检测：如果已进入新的游戏业务日 (05:00 切日)
     if (data.lastActiveDate !== todayGameDate) {
@@ -86,12 +122,13 @@ export const storage = {
       data.todos = data.todos
         .filter(todo => !(todo.type === 'once' && todo.completed)) // 清理昨日已完成的临时待办
         .map(todo => {
-          if (todo.type === 'habit') {
+          if (todo.type === 'habit' && !todo.deleted) {
             return {
               ...todo,
               completed: false,
               completedAt: undefined,
-              note: undefined
+              note: undefined,
+              updatedAt: Date.now()
             }
           }
           return todo

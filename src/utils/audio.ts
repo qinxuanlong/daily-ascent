@@ -4,15 +4,40 @@
  * 无需外挂音频文件，离线即时生效，0 网络开销
  */
 
+let sharedAudioCtx: AudioContext | null = null
+
+function getAudioContext(): AudioContext | null {
+  if (typeof window === 'undefined') return null
+  const AudioContextClass =
+    window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
+  if (!AudioContextClass) return null
+  if (!sharedAudioCtx || sharedAudioCtx.state === 'closed') {
+    sharedAudioCtx = new AudioContextClass()
+  }
+  return sharedAudioCtx
+}
+
+/** 用户交互（如点击开启专注）时主动唤醒解锁 AudioContext */
+export function resumeAudioContext(): void {
+  try {
+    const ctx = getAudioContext()
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
+  } catch {
+    // 忽略异常
+  }
+}
+
 /** 播放专注完成/打卡成功清脆磬铃音 */
 export function playChimeSound(): void {
   try {
-    const AudioContextClass =
-      window.AudioContext ||
-      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext
-    if (!AudioContextClass) return
-
-    const ctx = new AudioContextClass()
+    const ctx = getAudioContext()
+    if (!ctx) return
+    if (ctx.state === 'suspended') {
+      ctx.resume().catch(() => {})
+    }
     const now = ctx.currentTime
 
     // 主音 (528Hz 和平音)

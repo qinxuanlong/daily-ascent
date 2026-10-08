@@ -9,6 +9,9 @@ export type TodoType = 'habit' | 'once'
 /** 专注计时模式：25分番茄 | 45分深度 | 正向心流计时 */
 export type FocusTimerMode = 'pomodoro25' | 'pomodoro45' | 'stopwatch'
 
+/** 日志生成来源：真实专注 (focus) | 快捷补记备忘 (manual) */
+export type LogSource = 'focus' | 'manual'
+
 /** 待办打卡任务数据模型 */
 export interface TodoItem {
   id: string
@@ -21,6 +24,8 @@ export interface TodoItem {
   streak?: number        // 习惯连续达成天数 (仅 habit 有效)
   order: number          // 排序权重 (升序排布)
   updatedAt: number      // 变更时间戳，供 WebDAV 细粒度同步合并去重
+  deleted?: boolean      // 软删除标记
+  deletedAt?: number     // 软删除时间戳
 }
 
 /** 成果资产与打卡记录流水模型 */
@@ -30,10 +35,17 @@ export interface CheckInLog {
   time: string           // 打卡发生时刻 HH:mm:ss
   todoId?: string        // 关联的待办项 ID
   todoTitle?: string     // 关联的待办项标题快照
-  exp: number            // 本次打卡赋予经验值 (+50/+100 等)
+  exp: number            // 本次打卡赋予经验值 (+50/+100 等，manual 补记固定为 0)
   note: string           // 本次完成了什么 / 成果沉淀总结
-  durationMinutes?: number // 真实专注时长 (分钟)
+  durationMinutes?: number // 真实专注时长 (分钟，manual 补记为 0)
   quantity?: string      // 产出计数 (选填，如 "2题" / "1000字")
+
+  source: LogSource      // 核心标记：真实心流专注 (focus) 还是补记 (manual)
+  startedAt?: string     // 专注开始时间 ISO 格式 (供跨日准确归属计算)
+  endedAt?: string       // 专注结束时间 ISO 格式
+  updatedAt: number      // 变更时间戳，供 WebDAV 细粒度合并
+  deleted?: boolean      // 软删除标记
+  deletedAt?: number     // 软删除时间戳
 }
 
 /** 角色立绘选项 */

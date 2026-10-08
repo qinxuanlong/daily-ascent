@@ -18,14 +18,14 @@
         </button>
       </div>
 
-      <!-- 核心资产指标三宫格 -->
+      <!-- 核心资产指标四宫格 (专注时长、真实成果、补记条数、连续心流) -->
       <div class="vault-metrics-grid">
         <div class="metric-box">
           <div class="metric-icon-wrap duration-wrap">
             <AppIcon name="clock" :size="18" />
           </div>
           <div class="metric-text-stack">
-            <span class="metric-value">{{ formatDurationText(todayTotalFocusMinutes) }}</span>
+            <span class="metric-value">{{ formatDurationText(todayFocusMinutes) }}</span>
             <span class="metric-label">今日专注投入</span>
           </div>
         </div>
@@ -35,8 +35,18 @@
             <AppIcon name="sparkles" :size="18" />
           </div>
           <div class="metric-text-stack">
-            <span class="metric-value">{{ todayLogs.length }}<small>条</small></span>
-            <span class="metric-label">今日沉淀成果</span>
+            <span class="metric-value">{{ todayRealCount }}<small>条</small></span>
+            <span class="metric-label">今日真实成果</span>
+          </div>
+        </div>
+
+        <div class="metric-box">
+          <div class="metric-icon-wrap manual-wrap">
+            <AppIcon name="edit" :size="18" />
+          </div>
+          <div class="metric-text-stack">
+            <span class="metric-value">{{ todayManualCount }}<small>条</small></span>
+            <span class="metric-label">今日补记条数</span>
           </div>
         </div>
 
@@ -52,11 +62,11 @@
       </div>
     </div>
 
-    <!-- 2. 本周打卡状态星轨矩阵 -->
+    <!-- 2. 本周打卡状态星轨矩阵 (仅真实有效专注方可点亮) -->
     <div class="week-matrix-card">
       <div class="matrix-header">
         <span class="matrix-title">本周星芒矩阵</span>
-        <span class="matrix-tip">周一至周日 · 持续点亮</span>
+        <span class="matrix-tip">周一至周日 · 仅真实专注点亮</span>
       </div>
       <div class="week-days-row">
         <div
@@ -82,20 +92,25 @@
       <div class="timeline-header">
         <div class="timeline-title-group">
           <h3 class="section-title">成果时光轴</h3>
-          <span class="section-count">共积累 {{ logs.length }} 条成果资产</span>
+          <span class="section-count">共积累 {{ sortedLogs.length }} 条成果资产</span>
         </div>
       </div>
 
-      <div v-if="logs.length === 0" class="empty-logs">
+      <div v-if="sortedLogs.length === 0" class="empty-logs">
         <span class="empty-sparkle">✦</span>
         <p>暂无成果资产，开启一次 25 分钟专注，沉淀你的第一块成果吧！</p>
       </div>
 
       <div v-else class="timeline-list">
-        <div v-for="log in sortedLogs" :key="log.id" class="outcome-card-item">
+        <div
+          v-for="log in sortedLogs"
+          :key="log.id"
+          class="outcome-card-item"
+          :class="{ 'is-manual-card': log.source === 'manual' }"
+        >
           <!-- 左侧时间线光柱指示 -->
           <div class="timeline-indicator">
-            <div class="indicator-dot"></div>
+            <div class="indicator-dot" :class="{ 'manual-dot': log.source === 'manual' }"></div>
             <div class="indicator-line"></div>
           </div>
 
@@ -105,11 +120,21 @@
               <div class="time-meta-row">
                 <span class="item-date">{{ log.date }}</span>
                 <span class="item-time">{{ log.time }}</span>
-                <!-- 真实专注时长标签 -->
-                <span v-if="log.durationMinutes" class="duration-chip">
+
+                <!-- 来源类型标签 -->
+                <span
+                  class="source-badge"
+                  :class="log.source === 'manual' ? 'badge-manual' : 'badge-focus'"
+                >
+                  {{ log.source === 'manual' ? '补记' : '心流' }}
+                </span>
+
+                <!-- 真实专注时长标签 (仅 focus 存在) -->
+                <span v-if="log.source === 'focus' && log.durationMinutes" class="duration-chip">
                   <AppIcon name="clock" :size="11" />
                   <span>{{ log.durationMinutes }}m 专注</span>
                 </span>
+
                 <!-- 产出量化计数 (若有) -->
                 <span v-if="log.quantity" class="quantity-chip">
                   <span>{{ log.quantity }}</span>
@@ -117,10 +142,12 @@
               </div>
 
               <div class="card-top-right">
-                <span class="exp-badge">+{{ log.exp || 50 }} EXP</span>
+                <span class="exp-badge" :class="{ 'zero-exp': log.source === 'manual' }">
+                  +{{ log.exp || 0 }} EXP
+                </span>
                 <button
                   class="log-delete-btn"
-                  title="删除此条成果"
+                  title="删除此条成果 (自动重算经验)"
                   @click="handleDelete(log.id)"
                 >
                   <AppIcon name="trash" :size="13" />
@@ -167,16 +194,37 @@ const emit = defineEmits<{
 const todayStr = computed(() => getGameDate())
 const weekDays = computed(() => getCurrentWeekDays())
 
+// 过滤掉已软删除的记录
+const activeLogs = computed(() => props.logs.filter((log) => !log.deleted))
+
+// 本周矩阵严格规则：仅有真实有效专注 (source === 'focus' 且时长 >= 5m) 的日期才可点亮
 const checkedDates = computed(() => {
-  return new Set(props.logs.map((log) => log.date))
+  return new Set(
+    activeLogs.value
+      .filter((log) => log.source === 'focus' && (log.durationMinutes || 0) >= 5)
+      .map((log) => log.date)
+  )
 })
 
 const todayLogs = computed(() => {
-  return props.logs.filter((log) => log.date === todayStr.value)
+  return activeLogs.value.filter((log) => log.date === todayStr.value)
 })
 
-const todayTotalFocusMinutes = computed(() => {
-  return todayLogs.value.reduce((acc, cur) => acc + (cur.durationMinutes || 0), 0)
+// 今日专注投入时长 (仅统计 focus 真实专注)
+const todayFocusMinutes = computed(() => {
+  return todayLogs.value
+    .filter((log) => log.source === 'focus')
+    .reduce((acc, cur) => acc + (cur.durationMinutes || 0), 0)
+})
+
+// 今日真实成果条数
+const todayRealCount = computed(() => {
+  return todayLogs.value.filter((log) => log.source === 'focus').length
+})
+
+// 今日补记备忘条数
+const todayManualCount = computed(() => {
+  return todayLogs.value.filter((log) => log.source === 'manual').length
 })
 
 function formatDurationText(mins: number): string {
@@ -186,7 +234,7 @@ function formatDurationText(mins: number): string {
 }
 
 const sortedLogs = computed(() => {
-  return [...props.logs].sort((a, b) => {
+  return [...activeLogs.value].sort((a, b) => {
     const timeA = `${a.date} ${a.time || ''}`
     const timeB = `${b.date} ${b.time || ''}`
     return timeB.localeCompare(timeA)
@@ -194,12 +242,12 @@ const sortedLogs = computed(() => {
 })
 
 function handleDelete(id: string) {
-  if (window.confirm('确定要删除这条成果资产记录吗？删除后对应的经验与统计将相应扣减。')) {
+  if (window.confirm('确定要删除这条成果资产记录吗？删除后对应的经验与统计将自动重新核算。')) {
     emit('delete-log', id)
   }
 }
 
-// 一键复制今日 Markdown 复盘简报
+// 一键复制今日 Markdown 复盘简报 (明确标注 [专注 Xm] 与 [补记])
 function handleCopyReport() {
   if (todayLogs.value.length === 0) {
     emit('toast', '今日尚未沉淀成果，先开启一次专注吧 ✦')
@@ -208,17 +256,17 @@ function handleCopyReport() {
 
   const lines = [
     `# 📅 Daily Ascent 成果简报 · ${todayStr.value}`,
-    `- **今日总专注时长**：${todayTotalFocusMinutes.value} 分钟 (${formatDurationText(todayTotalFocusMinutes.value)})`,
-    `- **沉淀成果总数**：${todayLogs.value.length} 条`,
+    `- **今日总专注时长**：${todayFocusMinutes.value} 分钟 (${formatDurationText(todayFocusMinutes.value)})`,
+    `- **真实沉淀成果**：${todayRealCount.value} 条${todayManualCount.value > 0 ? ` (另有 ${todayManualCount.value} 条补记)` : ''}`,
     `- **连续打卡心流**：${props.streak} 天`,
     '',
-    '## ✦ 核心产出清单'
+    '## ✦ 今日成果清单'
   ]
 
   todayLogs.value.forEach((item, idx) => {
-    const dur = item.durationMinutes ? `[${item.durationMinutes}m] ` : ''
+    const tag = item.source === 'manual' ? '[补记]' : `[专注 ${item.durationMinutes || 0}m]`
     const qty = item.quantity ? `(${item.quantity}) ` : ''
-    lines.push(`${idx + 1}. **${item.todoTitle || '专注任务'}** ${dur}${qty}`)
+    lines.push(`${idx + 1}. ${tag} **${item.todoTitle || '专注任务'}** ${qty}`)
     lines.push(`   > ${item.note}`)
   })
 
@@ -639,10 +687,44 @@ function handleCopyReport() {
   border-radius: 0 8px 8px 0;
 }
 
-.outcome-text {
-  font-size: 13px;
-  color: #f1f5f9;
-  line-height: 1.5;
-  word-break: break-word;
+.source-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.badge-focus {
+  background: rgba(94, 234, 212, 0.2);
+  color: #5eead4;
+  border: 1px solid rgba(94, 234, 212, 0.35);
+}
+
+.badge-manual {
+  background: rgba(100, 116, 139, 0.25);
+  color: #94a3b8;
+  border: 1px solid rgba(100, 116, 139, 0.35);
+}
+
+.zero-exp {
+  opacity: 0.5;
+  background: rgba(100, 116, 139, 0.15) !important;
+  color: #94a3b8 !important;
+}
+
+.manual-wrap {
+  background: rgba(148, 163, 184, 0.15) !important;
+  color: #94a3b8 !important;
+}
+
+.is-manual-card {
+  opacity: 0.85;
+  border-color: rgba(100, 116, 139, 0.2) !important;
+}
+
+.manual-dot {
+  background: #64748b !important;
+  box-shadow: 0 0 6px rgba(100, 116, 139, 0.5) !important;
 }
 </style>

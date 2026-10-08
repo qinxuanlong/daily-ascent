@@ -10,7 +10,8 @@
           </div>
           <div class="stat-tag">
             <AppIcon name="sparkles" :size="13" />
-            <span>沉淀 <strong>{{ todayOutcomeCount }}</strong> 条成果</span>
+            <span>沉淀 <strong>{{ todayRealOutcomeCount }}</strong> 条成果</span>
+            <span v-if="todayManualCount > 0" class="sub-manual-tag">(+{{ todayManualCount }} 补记)</span>
           </div>
         </div>
         <div class="progress-counter">
@@ -40,6 +41,12 @@
           <div class="focus-status-badge">
             <span class="pulse-dot"></span>
             <span>{{ isPaused ? '专注已暂停' : '正在单线程心流专注' }}</span>
+          </div>
+
+          <!-- 自由心流超 2 小时提醒 -->
+          <div v-if="timerMode === 'stopwatch' && elapsedSeconds >= 7200" class="timer-warning-banner">
+            <AppIcon name="clock" :size="13" />
+            <span>已持续心流超 2 小时，建议及时收工复盘</span>
           </div>
 
           <!-- 当前专注目标 -->
@@ -166,10 +173,10 @@
           </div>
         </div>
 
-        <!-- 轻量直接速记打卡入口 (备用，无需计时时使用) -->
+        <!-- 轻量直接补记入口 (仅作记录备忘，不计专注时长/不计连击/不给经验) -->
         <div class="direct-punch-row">
-          <button class="direct-punch-btn" @click="handleOpenOutcomeModal(0)">
-            <span>跳过计时，直接记一条成果 ✦</span>
+          <button class="direct-punch-btn manual-punch-btn" @click="handleOpenManualOutcomeModal">
+            <span>📝 补记一条成果备忘 (不计连击与时长) ✦</span>
           </button>
         </div>
       </div>
@@ -181,7 +188,7 @@
         </div>
         <h2 class="all-clear-title">今日目标已全达成！</h2>
         <p class="all-clear-desc">
-          所有计划待办已打卡完毕，今日已专注 {{ todayFocusMinutes }} 分钟，沉淀 {{ todayOutcomeCount }} 条成果！
+          所有计划待办已打卡完毕，今日已专注 {{ todayFocusMinutes }} 分钟，沉淀 {{ todayRealOutcomeCount }} 条成果！
         </p>
 
         <div class="clear-stats-pill">
@@ -221,28 +228,48 @@
           <div class="outcome-header">
             <div class="outcome-title-box">
               <span class="sparkle-symbol">✦</span>
-              <h3>专注完成 · 本次沉淀了什么？</h3>
+              <h3>{{ outcomeSource === 'manual' ? '补记成果备忘' : '专注完成 · 本次沉淀了什么？' }}</h3>
             </div>
-            <span class="duration-badge">
+            <span class="duration-badge" :class="{ 'is-manual': outcomeSource === 'manual' }">
               <AppIcon name="clock" :size="12" />
-              <span>专注 {{ recordedDurationMinutes }} 分钟</span>
+              <span v-if="outcomeSource === 'manual'">补记备忘 (无时长/0 EXP)</span>
+              <span v-else>专注 {{ recordedDurationMinutes }} 分钟</span>
             </span>
           </div>
 
           <div class="outcome-body">
+            <!-- 补记模式警示横幅 -->
+            <div v-if="outcomeSource === 'manual'" class="manual-notice-tip">
+              <span>⚠️ 补记说明：仅用于记录成果备忘，<b>不计专注时长、不计连击天数、不增加经验值</b>。</span>
+            </div>
+
             <!-- 关联任务提示 -->
             <div class="active-task-pill">
               <span>目标：{{ recordedTaskTitle }}</span>
             </div>
 
-            <!-- 核心产出一两句话输入框 -->
+            <!-- 专注时长校对（仅 focus 模式展示） -->
+            <div v-if="outcomeSource === 'focus'" class="duration-adjust-dock">
+              <span class="adjust-label">校对本次专注时长 (分钟)：</span>
+              <input
+                v-model.number="recordedDurationMinutes"
+                type="number"
+                min="1"
+                max="600"
+                class="duration-number-input"
+              />
+            </div>
+
+            <!-- 核心产出一两句话输入框 (必须填写，否则禁止盖章) -->
             <div class="form-group">
-              <label class="form-label">本次完成了什么？(一两句话记录产出)</label>
+              <label class="form-label">
+                本次完成了什么？(一两句话记录产出 <strong class="required-star">*必填</strong>)
+              </label>
               <textarea
                 v-model="outcomeSummary"
                 rows="2"
                 class="outcome-textarea"
-                placeholder="例如：攻克了完全背包的空间优化，写完了2道动态规划"
+                :placeholder="outcomeSource === 'manual' ? '请填写补记成果（必填，不能为空）' : '例如：攻克了完全背包的空间优化，写完了2道动态规划'"
                 maxlength="120"
                 @keyup.enter.ctrl="handleConfirmSaveOutcome"
               ></textarea>
@@ -262,15 +289,24 @@
           </div>
 
           <div class="outcome-footer">
-            <button class="cancel-outcome-btn" @click="showOutcomeModal = false">稍后补记</button>
+            <button class="cancel-outcome-btn" @click="showOutcomeModal = false">取消</button>
             <button
               class="stamp-confirm-btn"
               :class="{ 'is-stamping': isStampingAnim }"
-              :disabled="isStampingAnim"
+              :disabled="isStampingAnim || !outcomeSummary.trim()"
+              :title="!outcomeSummary.trim() ? '必须填写产出内容方可盖章归档' : ''"
               @click="handleConfirmSaveOutcome"
             >
               <AppIcon name="check" :size="16" />
-              <span>{{ isStampingAnim ? '盖章通关中...' : '盖章归档 (+50 EXP)' }}</span>
+              <span>
+                {{
+                  isStampingAnim
+                    ? '保存中...'
+                    : outcomeSource === 'manual'
+                    ? '保存补记备忘 (0 EXP)'
+                    : '盖章归档 (+50 EXP)'
+                }}
+              </span>
             </button>
           </div>
 
@@ -278,7 +314,7 @@
           <div v-if="isStampingAnim" class="stamp-seal-overlay">
             <div class="gold-seal-drop">
               <span class="seal-star">✦</span>
-              <span class="seal-text">成果入库</span>
+              <span class="seal-text">{{ outcomeSource === 'manual' ? '备忘入库' : '成果入库' }}</span>
             </div>
           </div>
         </div>
@@ -289,8 +325,9 @@
 
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import type { TodoItem, FocusTimerMode, CheckInLog } from '../types'
-import { playChimeSound } from '../utils/audio'
+import type { TodoItem, FocusTimerMode, CheckInLog, LogSource } from '../types'
+import { playChimeSound, resumeAudioContext } from '../utils/audio'
+import { getGameDate } from '../utils/date'
 import AppIcon from './AppIcon.vue'
 
 const props = defineProps<{
@@ -298,6 +335,7 @@ const props = defineProps<{
   logs: CheckInLog[]
   exp: number
   streak: number
+  preselectedTodoId?: string
 }>()
 
 const emit = defineEmits<{
@@ -306,28 +344,53 @@ const emit = defineEmits<{
     note: string
     durationMinutes: number
     quantity?: string
+    source: LogSource
+    startedAt?: string
+    endedAt?: string
   }): void
   (e: 'open-add-todo'): void
   (e: 'switch-tab', tab: 'checkin' | 'todos' | 'history'): void
 }>()
 
-// 进度与成果统计
-const totalCount = computed(() => props.todos.length)
-const completedCount = computed(() => props.todos.filter((t) => t.completed).length)
+// 过滤掉已软删除的待办项
+const activeTodos = computed(() => props.todos.filter((t) => !t.deleted))
+const totalCount = computed(() => activeTodos.value.length)
+const completedCount = computed(() => activeTodos.value.filter((t) => t.completed).length)
 const completionPercent = computed(() => {
   if (totalCount.value === 0) return 0
   return Math.round((completedCount.value / totalCount.value) * 100)
 })
 
-// 今日专注总分钟数与成果数
+// 今日专注与成果严格统计（仅归属今日业务日，且未软删除）
+const todayStr = computed(() => getGameDate())
+const todayLogs = computed(() => props.logs.filter((l) => !l.deleted && l.date === todayStr.value))
+
+// 仅统计 source === 'focus' 的真实心流累计时长
 const todayFocusMinutes = computed(() => {
-  return props.logs.reduce((acc, cur) => acc + (cur.durationMinutes || 0), 0)
+  return todayLogs.value
+    .filter((l) => l.source === 'focus')
+    .reduce((acc, cur) => acc + (cur.durationMinutes || 0), 0)
 })
-const todayOutcomeCount = computed(() => props.logs.length)
+const todayRealOutcomeCount = computed(() => todayLogs.value.filter((l) => l.source === 'focus').length)
+const todayManualCount = computed(() => todayLogs.value.filter((l) => l.source === 'manual').length)
 
 // 待办筛选与聚焦索引
-const pendingTodos = computed(() => props.todos.filter((t) => !t.completed))
+const pendingTodos = computed(() => activeTodos.value.filter((t) => !t.completed))
 const currentTaskIndex = ref(0)
+
+// 外部预选联动：当用户在待办列表点击圆环跳转过来时，自动切换到对应待办
+watch(
+  () => props.preselectedTodoId,
+  (preId) => {
+    if (preId) {
+      const idx = pendingTodos.value.findIndex((t) => t.id === preId)
+      if (idx !== -1) {
+        currentTaskIndex.value = idx
+      }
+    }
+  },
+  { immediate: true }
+)
 
 watch(
   () => pendingTodos.value.length,
@@ -361,6 +424,9 @@ const isPaused = ref(false)
 const elapsedSeconds = ref(0)
 const totalTargetSeconds = ref(25 * 60)
 let timerInterval: ReturnType<typeof setInterval> | null = null
+
+const focusStartedAt = ref<string>('')
+const outcomeSource = ref<LogSource>('focus')
 
 const activeTargetTitle = computed(() => customTargetInput.value.trim() || currentPendingTodo.value?.title || '专注心流')
 
@@ -406,9 +472,14 @@ function handleNextTask() {
 function handleStartFocus() {
   if (!currentPendingTodo.value) return
 
+  // 1. 用户首个手势主动激活 AudioContext，杜绝后续倒计时结束静音拦截
+  resumeAudioContext()
+
   isFocusing.value = true
   isPaused.value = false
   elapsedSeconds.value = 0
+  focusStartedAt.value = new Date().toISOString()
+  outcomeSource.value = 'focus'
 
   if (timerMode.value === 'pomodoro25') {
     totalTargetSeconds.value = 25 * 60
@@ -472,11 +543,22 @@ function stopTimer() {
   }
 }
 
-// 打开成果沉淀录入弹窗
+// 打开真实心流成果录入弹窗
 function handleOpenOutcomeModal(durationMins: number) {
   isFocusing.value = false
+  outcomeSource.value = 'focus'
   recordedDurationMinutes.value = durationMins || (timerMode.value === 'pomodoro45' ? 45 : 25)
   recordedTaskTitle.value = activeTargetTitle.value
+  outcomeSummary.value = ''
+  outcomeQuantity.value = ''
+  showOutcomeModal.value = true
+}
+
+// 打开补记成果录入弹窗 (不计专注时长、不计连击、不加经验)
+function handleOpenManualOutcomeModal() {
+  outcomeSource.value = 'manual'
+  recordedDurationMinutes.value = 0
+  recordedTaskTitle.value = currentPendingTodo.value?.title || activeTargetTitle.value
   outcomeSummary.value = ''
   outcomeQuantity.value = ''
   showOutcomeModal.value = true
@@ -485,22 +567,33 @@ function handleOpenOutcomeModal(durationMins: number) {
 // 确认保存成果并盖章
 function handleConfirmSaveOutcome() {
   if (isStampingAnim.value) return
-  isStampingAnim.value = true
+  const finalSummary = outcomeSummary.value.trim()
+  if (!finalSummary) return
 
+  // 自由心流超 4 小时确认保护
+  if (outcomeSource.value === 'focus' && recordedDurationMinutes.value > 240) {
+    if (!window.confirm('本次记录专注时长超过 4 小时 (240分钟)，是否确认为真实有效时长？')) {
+      return
+    }
+  }
+
+  isStampingAnim.value = true
   const activeTodoId = currentPendingTodo.value?.id || ''
-  const finalSummary = outcomeSummary.value.trim() || `${recordedTaskTitle.value} 专注完成 ✦`
   const finalQuantity = outcomeQuantity.value.trim() || undefined
 
   setTimeout(() => {
     emit('checkin', {
       todoId: activeTodoId,
       note: finalSummary,
-      durationMinutes: recordedDurationMinutes.value,
-      quantity: finalQuantity
+      durationMinutes: outcomeSource.value === 'manual' ? 0 : Math.max(1, recordedDurationMinutes.value),
+      quantity: finalQuantity,
+      source: outcomeSource.value,
+      startedAt: outcomeSource.value === 'manual' ? undefined : focusStartedAt.value,
+      endedAt: outcomeSource.value === 'manual' ? undefined : new Date().toISOString()
     })
     isStampingAnim.value = false
     showOutcomeModal.value = false
-  }, 900)
+  }, 850)
 }
 
 // 快捷键支持
@@ -1333,6 +1426,93 @@ onUnmounted(() => {
   font-weight: 900;
   color: #ffffff;
   letter-spacing: 2px;
+}
+
+.stamp-confirm-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  filter: grayscale(0.5);
+}
+
+.sub-manual-tag {
+  font-size: 11px;
+  color: #9ab2d5;
+  font-weight: normal;
+  margin-left: 2px;
+}
+
+.timer-warning-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-bottom: 8px;
+  animation: pulseWarning 2s infinite ease-in-out;
+}
+
+@keyframes pulseWarning {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.6; }
+}
+
+.manual-punch-btn {
+  border-style: dashed !important;
+  opacity: 0.8;
+}
+
+.manual-punch-btn:hover {
+  opacity: 1;
+}
+
+.manual-notice-tip {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #fcd34d;
+  font-size: 11px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+}
+
+.duration-adjust-dock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.adjust-label {
+  font-size: 11px;
+  color: #9ab2d5;
+}
+
+.duration-number-input {
+  width: 70px;
+  background: rgba(14, 25, 52, 0.8);
+  border: 1px solid rgba(243, 216, 130, 0.3);
+  border-radius: 8px;
+  color: #ffffff;
+  padding: 4px 8px;
+  font-size: 12px;
+  outline: none;
+  text-align: center;
+}
+
+.duration-number-input:focus {
+  border-color: #f3d882;
+}
+
+.required-star {
+  color: #f87171;
+  font-size: 11px;
 }
 
 @keyframes dropSeal {

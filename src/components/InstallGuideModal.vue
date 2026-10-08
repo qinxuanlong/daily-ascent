@@ -64,6 +64,10 @@
 
         <!-- 安卓指南 -->
         <div v-else class="step-list">
+          <div class="notice-tip" style="background: rgba(56, 189, 248, 0.12); border-color: rgba(56, 189, 248, 0.35); color: #bae6fd;">
+            📦 <strong>原生 APK 安装包</strong>：亦可前往 GitHub Releases 下载 <strong>Daily-Ascent.apk</strong> 原生安装包，支持系统级离线定时通知提醒。
+          </div>
+
           <div v-if="hasInstallPrompt" class="prompt-box">
             <p class="prompt-desc">检测到当前浏览器支持一键自动安装：</p>
             <button class="auto-install-btn" @click="$emit('trigger-install')">

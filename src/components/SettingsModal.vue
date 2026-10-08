@@ -63,6 +63,16 @@
         </div>
         <div class="webdav-box">
           <div class="input-row">
+            <span class="input-label">服务:</span>
+            <input
+              v-model="syncConfig.serverUrl"
+              type="url"
+              class="webdav-input"
+              placeholder="默认: https://dav.jianguoyun.com/dav/ (或代理URL)"
+              @change="handleSaveWebdavConfig"
+            />
+          </div>
+          <div class="input-row">
             <span class="input-label">账号:</span>
             <input
               v-model="syncConfig.username"
@@ -93,7 +103,7 @@
             </div>
           </div>
           <div class="webdav-hint-box">
-            <span>💡 账号必须是坚果云<b>注册邮箱</b>（非 admin）；密码必须是坚果云后台生成的<b>第三方应用授权密码</b>（非登录密码）。</span>
+            <span>💡 账号为坚果云<b>注册邮箱</b>；密码为<b>第三方应用授权密码</b>。如在生产环境遇跨域，可填入 Cloudflare Worker 等代理 URL。</span>
           </div>
           <div class="sync-options-row">
             <label class="checkbox-label">
@@ -120,7 +130,54 @@
           </button>
         </div>
 
-        <!-- 3. 手机安装指南 -->
+        <!-- 3. 每日打卡定时通知提醒 -->
+        <div class="section-title" style="margin-top: 18px;">
+          <AppIcon name="bell" :size="14" />
+          <span>每日打卡定时通知提醒</span>
+        </div>
+        <div class="notify-box">
+          <div class="notify-options-row">
+            <label class="checkbox-label">
+              <input
+                v-model="notifyConfig.enabled"
+                type="checkbox"
+                @change="handleToggleNotification"
+              />
+              <span>开启每日打卡提醒</span>
+            </label>
+            <div v-if="notifyConfig.enabled" class="time-picker-wrap">
+              <span class="time-label">时刻:</span>
+              <input
+                v-model="notifyConfig.time"
+                type="time"
+                class="time-input"
+                @change="handleSaveNotificationTime"
+              />
+            </div>
+          </div>
+
+          <div v-if="notifyConfig.enabled" class="notify-preview-box">
+            <div class="preview-title">
+              <AppIcon name="bell" :size="12" />
+              <span>{{ notifyConfig.title }} ({{ notifyConfig.time }})</span>
+            </div>
+            <div class="preview-body">{{ notifyConfig.body }}</div>
+          </div>
+
+          <div class="notify-action-row">
+            <button
+              class="test-btn notify-test-btn"
+              :disabled="testingNotify"
+              @click="handleTestNotification"
+            >
+              <AppIcon name="bell" :size="12" />
+              <span>{{ testingNotify ? '发送中...' : '测试通知效果' }}</span>
+            </button>
+            <span class="notify-hint">手机本地定时提醒，离线无网也能响</span>
+          </div>
+        </div>
+
+        <!-- 4. 手机安装指南 -->
         <div class="section-title" style="margin-top: 18px;">
           <AppIcon name="desktop" :size="14" />
           <span>移动端与全屏安装</span>
@@ -160,6 +217,12 @@
 <script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
 import { webdav } from '../utils/webdav'
+import {
+  getNotificationConfig,
+  setupDailyReminder,
+  sendTestNotification,
+  type NotificationConfig
+} from '../utils/notification'
 import type { CharacterType } from '../types'
 import AppIcon from './AppIcon.vue'
 
@@ -199,14 +262,50 @@ const testing = ref(false)
 const syncing = ref(false)
 const showPassword = ref(false)
 
+const notifyConfig = reactive<NotificationConfig>(getNotificationConfig())
+const testingNotify = ref(false)
+
 watch(
   () => props.show,
   (newVal) => {
     if (newVal) {
       Object.assign(syncConfig, webdav.getConfig())
+      Object.assign(notifyConfig, getNotificationConfig())
     }
   }
 )
+
+async function handleToggleNotification() {
+  const success = await setupDailyReminder(notifyConfig)
+  if (success) {
+    emit('toast', notifyConfig.enabled ? `已设定每日 ${notifyConfig.time} 提醒打卡 🔔` : '已关闭打卡提醒')
+  } else {
+    notifyConfig.enabled = false
+    emit('toast', '无法开启通知：请在系统设置中授予通知权限')
+  }
+}
+
+async function handleSaveNotificationTime() {
+  if (!notifyConfig.enabled) return
+  const success = await setupDailyReminder(notifyConfig)
+  if (success) {
+    emit('toast', `提醒时间已更新为每日 ${notifyConfig.time} 🔔`)
+  }
+}
+
+async function handleTestNotification() {
+  testingNotify.value = true
+  try {
+    const success = await sendTestNotification()
+    if (success) {
+      emit('toast', '测试通知已发出，请查看通知栏 🔔')
+    } else {
+      emit('toast', '通知发送受阻：请在系统设置中允许通知权限')
+    }
+  } finally {
+    testingNotify.value = false
+  }
+}
 
 function handleSaveWebdavConfig() {
   webdav.saveConfig(syncConfig)
@@ -617,5 +716,94 @@ function handleClearClick() {
 
 @keyframes spin {
   100% { transform: rotate(360deg); }
+}
+
+.notify-box {
+  background: rgba(20, 28, 48, 0.6);
+  border: 1px solid rgba(243, 216, 130, 0.25);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.notify-options-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.time-picker-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.time-label {
+  font-size: 11px;
+  color: #eed588;
+}
+
+.time-input {
+  background: rgba(10, 15, 28, 0.8);
+  border: 1px solid rgba(243, 216, 130, 0.35);
+  border-radius: 6px;
+  color: #f1f5f9;
+  padding: 3px 6px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.time-input:focus {
+  border-color: #f3d882;
+}
+
+.notify-preview-box {
+  background: rgba(243, 216, 130, 0.06);
+  border: 1px dashed rgba(243, 216, 130, 0.25);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.notify-preview-box .preview-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #f3d882;
+}
+
+.notify-preview-box .preview-body {
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.notify-action-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+
+.notify-test-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.notify-hint {
+  font-size: 10px;
+  color: #94a3b8;
 }
 </style>

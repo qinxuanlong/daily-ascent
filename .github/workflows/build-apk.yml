@@ -1,0 +1,83 @@
+name: 构建并发布 Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: 'android-build-${{ github.ref }}'
+  cancel-in-progress: true
+
+jobs:
+  build-apk:
+    name: 构建 Android APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 检出仓库代码
+        uses: actions/checkout@v4
+
+      - name: 配置 Java 环境
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 配置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: 安装项目依赖
+        run: npm ci
+
+      - name: 构建 Web 生产产物
+        run: npm run build
+
+      - name: 同步 Capacitor 原生工程
+        run: npx cap sync android
+
+      - name: 赋予 gradlew 执行权限
+        run: chmod +x ./android/gradlew
+
+      - name: 执行 Gradle 打包 APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: 整理并重命名 APK 产物
+        run: |
+          mkdir -p ./build-output
+          cp ./android/app/build/outputs/apk/debug/app-debug.apk ./build-output/Daily-Ascent.apk
+
+      - name: 上传构建工件 (Artifacts)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Daily-Ascent-APK
+          path: ./build-output/Daily-Ascent.apk
+          retention-days: 14
+
+      - name: 发布至 GitHub Releases (仅当推送 Tag 时)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./build-output/Daily-Ascent.apk
+          name: 每日攀升 ${{ github.ref_name }}
+          body: |
+            ### 🎮 每日攀升 (Daily Ascent) 安卓安装包更新
+
+            #### 📦 下载安装
+            - **安卓手机直接下载**：点击下方 Assets 中的 **`Daily-Ascent.apk`** 下载安装即可。
+            - **新特性**：
+              - 📱 原生 Android 手机端支持
+              - 🔔 本地定时打卡提醒（支持自定义时间、锁屏响铃通知，离线无网也生效）
+              - ☁️ 坚果云 WebDAV 云同步跨端打卡
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

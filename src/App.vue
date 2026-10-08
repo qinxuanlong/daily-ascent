@@ -69,6 +69,7 @@
           :logs="state.logs"
           :exp="state.exp"
           :streak="currentStreak"
+          :preselected-todo-id="preselectedTodoId"
           @checkin="handleCheckIn"
           @open-add-todo="activeTab = 'todos'"
           @switch-tab="handleSwitchTab"
@@ -84,7 +85,7 @@
             @click="dashRightTab = 'todos'"
           >
             <AppIcon name="list-todo" :size="15" />
-            <span>待办清单 ({{ state.todos.length }})</span>
+            <span>待办清单 ({{ visibleTodos.length }})</span>
           </button>
           <button
             class="dash-sub-tab"
@@ -92,7 +93,7 @@
             @click="dashRightTab = 'history'"
           >
             <AppIcon name="history" :size="15" />
-            <span>成果时光轴 ({{ state.logs.length }})</span>
+            <span>成果时光轴 ({{ visibleLogs.length }})</span>
           </button>
         </div>
 
@@ -104,6 +105,7 @@
             @update-todo="handleUpdateTodo"
             @delete-todo="handleDeleteTodo"
             @toggle-todo="handleToggleTodo"
+            @select-and-focus="handleSelectAndFocus"
           />
           <HistoryView
             v-else
@@ -127,6 +129,7 @@
           :logs="state.logs"
           :exp="state.exp"
           :streak="currentStreak"
+          :preselected-todo-id="preselectedTodoId"
           @checkin="handleCheckIn"
           @open-add-todo="activeTab = 'todos'"
           @switch-tab="handleSwitchTab"
@@ -140,6 +143,7 @@
           @update-todo="handleUpdateTodo"
           @delete-todo="handleDeleteTodo"
           @toggle-todo="handleToggleTodo"
+          @select-and-focus="handleSelectAndFocus"
         />
 
         <!-- 视图 3：成果资产陈列馆（成果时光轴与大盘） -->
@@ -220,10 +224,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import type { AppDataState, ActiveTab, TodoItem, CharacterType, CheckInLog } from './types'
-import { storage } from './stores/storage'
-import { getGameDate, formatTime, calculateStreak } from './utils/date'
+import type { AppDataState, ActiveTab, TodoItem, CharacterType, CheckInLog, LogSource } from './types'
+import { storage, recalcExp } from './stores/storage'
+import { getGameDate, getGameDateByStart, formatTime, calculateStreak, calculateHabitStreak } from './utils/date'
 import { webdav } from './utils/webdav'
+import { getNotificationConfig, setupDailyReminder } from './utils/notification'
 
 // 组件引入
 import AppIcon from './components/AppIcon.vue'
@@ -239,6 +244,7 @@ const state = reactive<AppDataState>(storage.get())
 const toastRef = ref<InstanceType<typeof ToastNotify> | null>(null)
 const activeTab = ref<ActiveTab>('checkin')
 const dashRightTab = ref<'todos' | 'history'>('todos')
+const preselectedTodoId = ref<string>('')
 const showSettingsModal = ref(false)
 const showInstallGuide = ref(false)
 const deferredInstallPrompt = ref<any>(null)
@@ -297,55 +303,82 @@ function handleToggleFullscreen() {
   }
 }
 
-// 业务日期
+// 业务日期与过滤计算
 const todayStr = computed(() => getGameDate())
+const visibleTodos = computed(() => state.todos.filter((t) => !t.deleted))
+const visibleLogs = computed(() => state.logs.filter((l) => !l.deleted))
 const currentLevel = computed(() => Math.floor(state.exp / 100) + 1)
 const currentStreak = computed(() => calculateStreak(state.logs, todayStr.value))
-const pendingCount = computed(() => state.todos.filter((t) => !t.completed).length)
+const pendingCount = computed(() => visibleTodos.value.filter((t) => !t.completed).length)
 
 function saveState() {
   storage.set(state)
 }
 
-// 今日打卡核心触发 (包含真实专注时长与产出沉淀)
+// 预选任务并跳转到专注发射台
+function handleSelectAndFocus(todoId: string) {
+  preselectedTodoId.value = todoId
+  activeTab.value = 'checkin'
+  toastRef.value?.show('已聚焦待办，准备开启心流专注 ✦')
+}
+
+// 今日打卡核心触发 (区分真实专注与补记)
 function handleCheckIn(payload: {
   todoId: string
   note: string
   durationMinutes: number
   quantity?: string
+  source: LogSource
+  startedAt?: string
+  endedAt?: string
 }) {
   const targetTodo = state.todos.find((t) => t.id === payload.todoId)
   if (targetTodo) {
     targetTodo.completed = true
     targetTodo.completedAt = new Date().toISOString()
     if (payload.note) targetTodo.note = payload.note
-    if (targetTodo.type === 'habit') {
-      targetTodo.streak = (targetTodo.streak || 0) + 1
-    }
     targetTodo.updatedAt = Date.now()
   }
 
-  // 记录成果流水
+  // 凌晨 5 点切日，按“专注开始时间”进行业务日归属
+  const logDate = payload.startedAt ? getGameDateByStart(payload.startedAt) : todayStr.value
+
   const newLog: CheckInLog = {
     id: Date.now().toString(),
-    date: todayStr.value,
+    date: logDate,
     time: formatTime(),
     todoId: targetTodo?.id,
     todoTitle: targetTodo?.title,
-    exp: 50,
+    exp: payload.source === 'manual' ? 0 : 50,
     note: payload.note || `${targetTodo?.title || '专注心流'} 成果达成 ✦`,
     durationMinutes: payload.durationMinutes,
-    quantity: payload.quantity
+    quantity: payload.quantity,
+    source: payload.source,
+    startedAt: payload.startedAt,
+    endedAt: payload.endedAt,
+    updatedAt: Date.now()
   }
 
   state.logs.unshift(newLog)
-  state.exp += 50
+
+  // 习惯任务连击从有效日志重算
+  if (targetTodo && targetTodo.type === 'habit') {
+    targetTodo.streak = calculateHabitStreak(targetTodo.id, state.logs, todayStr.value)
+  }
+
+  // 严格重算全局经验与连击天数（补记不加经验、不计连击）
+  state.exp = recalcExp(state.logs)
   state.streak = calculateStreak(state.logs, todayStr.value)
   state.maxStreak = Math.max(state.maxStreak || 0, state.streak)
 
   saveState()
-  const durationDesc = payload.durationMinutes > 0 ? ` · 专注 ${payload.durationMinutes} 分钟` : ''
-  toastRef.value?.show(`成果入库！+50 EXP ✦${durationDesc}`)
+
+  if (payload.source === 'manual') {
+    toastRef.value?.show('成果备忘已记录 ✦ (不计经验与时长)')
+  } else {
+    const durationDesc = payload.durationMinutes > 0 ? ` · 专注 ${payload.durationMinutes} 分钟` : ''
+    toastRef.value?.show(`成果入库！+50 EXP ✦${durationDesc}`)
+  }
 
   // 自动同步
   const syncCfg = webdav.getConfig()
@@ -381,38 +414,46 @@ function handleUpdateTodo(id: string, updates: Partial<TodoItem>) {
   }
 }
 
+// 软删除待办
 function handleDeleteTodo(id: string) {
-  state.todos = state.todos.filter((t) => t.id !== id)
-  saveState()
-  toastRef.value?.show('已删除待办项')
-  if (webdav.getConfig().autoSync) performSync(true)
+  const target = state.todos.find((t) => t.id === id)
+  if (target) {
+    target.deleted = true
+    target.deletedAt = Date.now()
+    target.updatedAt = Date.now()
+    saveState()
+    toastRef.value?.show('已删除待办项')
+    if (webdav.getConfig().autoSync) performSync(true)
+  }
 }
 
+// 撤销/跳转打卡
 function handleToggleTodo(todo: TodoItem) {
   if (todo.completed) {
+    // 已经打卡的项：仅撤销 completed 标记，不删成果日志，不回退经验
     todo.completed = false
     todo.completedAt = undefined
     todo.updatedAt = Date.now()
     saveState()
-    toastRef.value?.show('已撤销打卡状态')
+    toastRef.value?.show('已撤销完成标记（成果记录已保留）')
   } else {
-    handleCheckIn({
-      todoId: todo.id,
-      note: todo.note || '',
-      durationMinutes: 25
-    })
+    // 未完成待办：严禁一键打卡！必须跳到发射台开启专注
+    handleSelectAndFocus(todo.id)
   }
 }
 
-// 删除单条流水记录
+// 删除成果记录（软删除并重算经验）
 function handleDeleteLog(logId: string) {
   const target = state.logs.find((l) => l.id === logId)
   if (target) {
-    state.exp = Math.max(0, state.exp - (target.exp || 50))
-    state.logs = state.logs.filter((l) => l.id !== logId)
+    target.deleted = true
+    target.deletedAt = Date.now()
+    target.updatedAt = Date.now()
+    // 重新从剩余未删除的 focus 日志中核算经验
+    state.exp = recalcExp(state.logs)
     state.streak = calculateStreak(state.logs, todayStr.value)
     saveState()
-    toastRef.value?.show('已删除该条记录')
+    toastRef.value?.show('已删除该条成果，经验已重新核算')
     if (webdav.getConfig().autoSync) performSync(true)
   }
 }
@@ -421,7 +462,7 @@ function handleSwitchTab(tab: ActiveTab) {
   activeTab.value = tab
 }
 
-// 同步逻辑
+// 同步逻辑 (合并后必须调用 recalcExp 重算经验)
 async function performSync(silent: boolean = false, callback?: (success: boolean, message?: string) => void) {
   if (isSyncing.value) return
   isSyncing.value = true
@@ -429,6 +470,9 @@ async function performSync(silent: boolean = false, callback?: (success: boolean
     const res = await webdav.sync(state)
     if (res.success && res.data) {
       Object.assign(state, res.data)
+      state.exp = recalcExp(state.logs)
+      state.streak = calculateStreak(state.logs, todayStr.value)
+      state.maxStreak = Math.max(state.maxStreak || 0, state.streak)
       saveState()
       if (!silent) toastRef.value?.show(res.message || '坚果云同步成功 ✦')
       callback?.(true, res.message)
@@ -490,10 +534,11 @@ function handleClear() {
   location.reload()
 }
 
-// 键盘快捷键支持 (桌面端)
+// 键盘快捷键支持 (桌面端，输入状态防冲突)
 function handleKeyDown(e: KeyboardEvent) {
-  const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
-  if (tag === 'input' || tag === 'textarea') return
+  const el = e.target as HTMLElement
+  const tag = el?.tagName?.toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || tag === 'select' || el?.isContentEditable) return
 
   if (e.key === '1') {
     activeTab.value = 'checkin'
@@ -508,12 +553,21 @@ onMounted(() => {
   window.addEventListener('resize', handleResize)
   window.addEventListener('keydown', handleKeyDown)
 
+  // 严格核算经验值与真实心流连击
+  state.exp = recalcExp(state.logs)
   state.streak = calculateStreak(state.logs, todayStr.value)
+  state.maxStreak = Math.max(state.maxStreak || 0, state.streak)
   saveState()
 
   const cfg = webdav.getConfig()
   if (cfg.enabled && cfg.username && cfg.password) {
     performSync(true)
+  }
+
+  // 若用户启用了每日提醒，应用启动时确保调度激活
+  const notifyCfg = getNotificationConfig()
+  if (notifyCfg.enabled) {
+    setupDailyReminder(notifyCfg)
   }
 })
 

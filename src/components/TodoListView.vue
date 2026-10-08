@@ -50,11 +50,11 @@
         class="todo-item-card"
         :class="{ 'is-completed': todo.completed }"
       >
-        <!-- 左侧勾选打卡圆环按钮 -->
+        <!-- 左侧打卡圆环按钮（未完成跳转专注发射台，已完成仅撤销状态） -->
         <button
           class="check-circle-btn"
           :class="{ checked: todo.completed }"
-          :title="todo.completed ? '撤销打卡' : '标记打卡完成'"
+          :title="todo.completed ? '撤销任务完成标记（保留已生成成果记录）' : '前往专注发射台启动心流打卡'"
           @click="handleToggle(todo)"
         >
           <AppIcon v-if="todo.completed" name="check" :size="14" />
@@ -185,17 +185,21 @@ const emit = defineEmits<{
   (e: 'update-todo', id: string, updates: Partial<TodoItem>): void
   (e: 'delete-todo', id: string): void
   (e: 'toggle-todo', todo: TodoItem): void
+  (e: 'select-and-focus', todoId: string): void
 }>()
 
 const currentFilter = ref<'all' | 'habit' | 'once'>('all')
 
-const completedTodos = computed(() => props.todos.filter((t) => t.completed))
-const habitCount = computed(() => props.todos.filter((t) => t.type === 'habit').length)
-const onceCount = computed(() => props.todos.filter((t) => t.type === 'once').length)
+// 过滤掉已软删除的待办项
+const activeTodos = computed(() => props.todos.filter((t) => !t.deleted))
+
+const completedTodos = computed(() => activeTodos.value.filter((t) => t.completed))
+const habitCount = computed(() => activeTodos.value.filter((t) => t.type === 'habit').length)
+const onceCount = computed(() => activeTodos.value.filter((t) => t.type === 'once').length)
 
 // 排序：未完成在前，按时间/顺序排；已完成沉底
 const filteredTodos = computed(() => {
-  let list = props.todos
+  let list = activeTodos.value
   if (currentFilter.value === 'habit') {
     list = list.filter((t) => t.type === 'habit')
   } else if (currentFilter.value === 'once') {
@@ -218,7 +222,13 @@ const formType = ref<TodoType>('habit')
 const formTime = ref('')
 
 function handleToggle(todo: TodoItem) {
-  emit('toggle-todo', todo)
+  if (todo.completed) {
+    // 已经完成的项点击：仅撤销完成状态，不删成果日志，不回退经验
+    emit('toggle-todo', todo)
+  } else {
+    // 未完成待办点击圆环：严禁一键打卡！必须跳到今日打卡发射台并预选这个任务开启专注
+    emit('select-and-focus', todo.id)
+  }
 }
 
 function handleEdit(todo: TodoItem) {

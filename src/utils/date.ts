@@ -38,6 +38,12 @@ export function getGameDate(now: Date = new Date()): string {
   return formatDate(d)
 }
 
+/** 跨 05:00 切日按“专注开始时间”进行归属计算 */
+export function getGameDateByStart(startedAt: Date | string): string {
+  const d = typeof startedAt === 'string' ? new Date(startedAt) : new Date(startedAt)
+  return getGameDate(isNaN(d.getTime()) ? new Date() : d)
+}
+
 /** 获取当前周的周一至周日日期列表 */
 export function getCurrentWeekDays(now: Date = new Date()): WeekDayInfo[] {
   const d = new Date(now)
@@ -67,12 +73,23 @@ export function getCurrentWeekDays(now: Date = new Date()): WeekDayInfo[] {
   return weekDays
 }
 
-/** 计算连续打卡天数（Streak） */
+/**
+ * 计算全局连续专注心流天数（Streak）
+ * 严格规则：
+ * 1. 仅统计未软删除 (!deleted) 且 source === 'focus' 的真实心流日志
+ * 2. 专注时长必须 >= 5 分钟方可作为有效打卡日
+ * 3. 补记 (source === 'manual') 绝不计入连击
+ */
 export function calculateStreak(logs: CheckInLog[] = [], todayStr: string = getGameDate()): number {
   if (!logs || logs.length === 0) return 0
 
-  // 提取去重的所有打卡日期（降序排列）
-  const uniqueDates = Array.from(new Set(logs.map(log => log.date))).sort().reverse()
+  // 严格过滤真实有效专注日志
+  const validFocusLogs = logs.filter(
+    (log) => !log.deleted && log.source === 'focus' && (log.durationMinutes || 0) >= 5
+  )
+
+  // 提取去重的所有有效打卡日期（降序排列）
+  const uniqueDates = Array.from(new Set(validFocusLogs.map((log) => log.date))).sort().reverse()
   if (uniqueDates.length === 0) return 0
 
   let streak = 0
@@ -103,3 +120,16 @@ export function calculateStreak(logs: CheckInLog[] = [], todayStr: string = getG
 
   return streak
 }
+
+/**
+ * 针对单个习惯任务，从专注日志中重算其连续达成天数
+ */
+export function calculateHabitStreak(
+  todoId: string,
+  logs: CheckInLog[] = [],
+  todayStr: string = getGameDate()
+): number {
+  const habitLogs = (logs || []).filter((log) => log.todoId === todoId)
+  return calculateStreak(habitLogs, todayStr)
+}
+

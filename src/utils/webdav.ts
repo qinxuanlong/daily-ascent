@@ -3,6 +3,7 @@
  * 负责本地打卡及待办数据与坚果云云端 (/daily-ascent/data.json) 的自动双向合并与持久化
  */
 import type { AppDataState, CheckInLog, TodoItem } from '../types'
+import { recalcExp } from '../stores/storage'
 
 const WEBDAV_STORAGE_KEY = 'daily-ascent-webdav-config'
 
@@ -178,53 +179,58 @@ export const webdav = {
     }
   },
 
-  // 4. 双向智能合并（本地与云端）
+  // 4. 双向智能合并（本地与云端，严格支持软删除与更新时间戳判定）
   merge(localData: AppDataState, cloudData: AppDataState | null): AppDataState {
     if (!cloudData) return localData
 
-    // 合并历史流水 logs（按 id 去重）
+    // 合并历史流水 logs：按 id 找同一条，按 updatedAt 谁新用谁
     const logMap = new Map<string, CheckInLog>()
+    const allLogs = [
+      ...(Array.isArray(cloudData.logs) ? cloudData.logs : []),
+      ...(Array.isArray(localData.logs) ? localData.logs : [])
+    ]
 
-    if (Array.isArray(cloudData.logs)) {
-      cloudData.logs.forEach((item) => {
-        if (item && item.id) logMap.set(String(item.id), item)
-      })
-    }
-
-    if (Array.isArray(localData.logs)) {
-      localData.logs.forEach((item) => {
-        if (item && item.id) logMap.set(String(item.id), item)
-      })
-    }
-
-    const mergedLogs = Array.from(logMap.values()).sort((a, b) => {
-      const timeA = `${a.date} ${a.time || ''}`
-      const timeB = `${b.date} ${b.time || ''}`
-      return timeB.localeCompare(timeA)
+    allLogs.forEach((item) => {
+      if (!item || !item.id) return
+      const idKey = String(item.id)
+      const existing = logMap.get(idKey)
+      if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
+        logMap.set(idKey, item)
+      }
     })
 
-    // 合并待办项 todos (按 id 去重，采用 updatedAt 较新者优先)
-    const todoMap = new Map<string, TodoItem>()
-    if (Array.isArray(cloudData.todos)) {
-      cloudData.todos.forEach((item) => {
-        if (item && item.id) todoMap.set(String(item.id), item)
+    // 最新版本为 deleted = true 的直接过滤剔除，防止已删除记录被旧端复活
+    const mergedLogs = Array.from(logMap.values())
+      .filter((l) => !l.deleted)
+      .sort((a, b) => {
+        const timeA = `${a.date} ${a.time || ''}`
+        const timeB = `${b.date} ${b.time || ''}`
+        return timeB.localeCompare(timeA)
       })
-    }
-    if (Array.isArray(localData.todos)) {
-      localData.todos.forEach((item) => {
-        if (item && item.id) {
-          const existing = todoMap.get(String(item.id))
-          if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
-            todoMap.set(String(item.id), item)
-          }
-        }
-      })
-    }
-    const mergedTodos = Array.from(todoMap.values()).sort((a, b) => a.order - b.order)
 
-    // 经验值保底
-    const calculatedExp = mergedLogs.reduce((acc, cur) => acc + (cur.exp || 50), 0)
-    const finalExp = Math.max(localData.exp || 0, cloudData.exp || 0, calculatedExp)
+    // 合并待办项 todos：按 id 找同一条，按 updatedAt 较新者优先
+    const todoMap = new Map<string, TodoItem>()
+    const allTodos = [
+      ...(Array.isArray(cloudData.todos) ? cloudData.todos : []),
+      ...(Array.isArray(localData.todos) ? localData.todos : [])
+    ]
+
+    allTodos.forEach((item) => {
+      if (!item || !item.id) return
+      const idKey = String(item.id)
+      const existing = todoMap.get(idKey)
+      if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
+        todoMap.set(idKey, item)
+      }
+    })
+
+    // 最新版本为 deleted = true 的直接过滤剔除
+    const mergedTodos = Array.from(todoMap.values())
+      .filter((t) => !t.deleted)
+      .sort((a, b) => a.order - b.order)
+
+    // 经验值强制基于真实专注日志总和重算，绝不使用 Math.max 虚假保底，防止误删或脏数据无法回退
+    const finalExp = recalcExp(mergedLogs)
 
     return {
       ...localData,

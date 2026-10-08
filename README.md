@@ -38,12 +38,18 @@
    - 接入坚果云免费 WebDAV 协议，支持账号配置、连通性测试、手动双向合并同步、打卡后自动静默同步。
 10. **本地数据安全保障**：
     - 支持一键导出/导入完整 JSON 数据文件，随时迁移备份，带防误触清空确认。
+11. **Android 原生 App & 本地定时打卡通知**：
+    - 基于 Capacitor 打包为原生 Android 移动端应用（`.apk`）；
+    - 内置系统级每日定时打卡通知，支持自定义时刻（如每晚 21:00）；
+    - 本地定时机制，断网离线也能准时响铃推送；
+    - 接入 GitHub Actions CI/CD，自动在 GitHub Releases 发布最新 APK 供下载。
 
 ---
 
 ## 🛠️ 技术架构
 
 - **前端框架**：Vue 3 (Composition API / `<script setup>`)
+- **移动端框架**：Capacitor 8 (@capacitor/android, @capacitor/local-notifications)
 - **构建工具**：Vite 6
 - **样式方案**：纯原生 CSS 自定义属性（深色护眼极客风格）
 - **数据存储**：
@@ -64,8 +70,34 @@ npm install
 npm run dev
 ```
 
-### 3. 构建发布版本
+### 3. 构建发布 Web 版本
 ```bash
 npm run build
 ```
 构建产物输出于 `dist/` 目录。
+
+### 4. 同步并构建 Android APK
+```bash
+# 编译前端并同步至 Android 工程
+npm run cap:sync
+
+# 进入 Android 目录打包 APK (需要本地 Java 环境)
+cd android
+./gradlew assembleDebug
+```
+生成的安装包位于：`android/app/build/outputs/apk/debug/app-debug.apk`。
+
+---
+
+## 📦 GitHub Releases 自动打包下载
+
+本项目已配置 GitHub Actions 自动化编译工作流（`.github/workflows/build-apk.yml`）：
+
+1. **自动发布**：在本地或 GitHub 打上版本标签并推送：
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+   GitHub Actions 将在云端自动编译生成 **`Daily-Ascent.apk`**，并在仓库的 **Releases** 页面发布，任何人都可直接下载安装至安卓手机！
+2. **手动触发**：也可随时在 GitHub 仓库的 **Actions** 标签页，找到 **"构建并发布 Android APK"** 点击 **Run workflow** 即可在几分钟内下载生成的 APK 安装包。
+
