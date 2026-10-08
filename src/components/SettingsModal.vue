@@ -92,6 +92,9 @@
               </button>
             </div>
           </div>
+          <div class="webdav-hint-box">
+            <span>💡 账号必须是坚果云<b>注册邮箱</b>（非 admin）；密码必须是坚果云后台生成的<b>第三方应用授权密码</b>（非登录密码）。</span>
+          </div>
           <div class="sync-options-row">
             <label class="checkbox-label">
               <input
@@ -533,6 +536,22 @@ function handleClearClick() {
 
 .toggle-eye-btn:hover {
   color: #f3d882;
+}
+
+.webdav-hint-box {
+  background: rgba(243, 216, 130, 0.08);
+  border: 1px dashed rgba(243, 216, 130, 0.3);
+  border-radius: 8px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: #eed588;
+  line-height: 1.45;
+  margin-bottom: 6px;
+}
+
+.webdav-hint-box b {
+  color: #fff;
+  text-decoration: underline;
 }
 
 .sync-options-row {
