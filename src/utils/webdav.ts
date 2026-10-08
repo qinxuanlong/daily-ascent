@@ -18,8 +18,8 @@ export interface WebDavStoredConfig {
 
 export const defaultWebdavConfig: WebDavStoredConfig = {
   enabled: true,
-  username: '',
-  password: '',
+  username: (import.meta.env.VITE_WEBDAV_USERNAME as string) || '',
+  password: (import.meta.env.VITE_WEBDAV_PASSWORD as string) || '',
   serverUrl: 'https://dav.jianguoyun.com/dav/',
   appDir: 'daily-ascent',
   autoSync: true,
@@ -37,8 +37,15 @@ export const webdav = {
   getConfig(): WebDavStoredConfig {
     try {
       const raw = localStorage.getItem(WEBDAV_STORAGE_KEY)
-      if (!raw) return { ...defaultWebdavConfig }
-      return { ...defaultWebdavConfig, ...JSON.parse(raw) }
+      const stored = raw ? JSON.parse(raw) : {}
+      const envUser = (import.meta.env.VITE_WEBDAV_USERNAME as string) || ''
+      const envPass = (import.meta.env.VITE_WEBDAV_PASSWORD as string) || ''
+      return {
+        ...defaultWebdavConfig,
+        ...stored,
+        ...(envUser ? { username: envUser } : {}),
+        ...(envPass ? { password: envPass } : {})
+      }
     } catch {
       return { ...defaultWebdavConfig }
     }
