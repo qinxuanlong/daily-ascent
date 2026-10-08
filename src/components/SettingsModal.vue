@@ -74,13 +74,23 @@
           </div>
           <div class="input-row">
             <span class="input-label">密码:</span>
-            <input
-              v-model="syncConfig.password"
-              type="password"
-              class="webdav-input"
-              placeholder="第三方应用独立授权密码"
-              @change="handleSaveWebdavConfig"
-            />
+            <div class="password-input-wrap">
+              <input
+                v-model="syncConfig.password"
+                :type="showPassword ? 'text' : 'password'"
+                class="webdav-input"
+                placeholder="第三方应用独立授权密码"
+                @change="handleSaveWebdavConfig"
+              />
+              <button
+                type="button"
+                class="toggle-eye-btn"
+                :title="showPassword ? '隐藏密码' : '显示密码明文'"
+                @click="showPassword = !showPassword"
+              >
+                <AppIcon :name="showPassword ? 'eye-off' : 'eye'" :size="15" />
+              </button>
+            </div>
           </div>
           <div class="sync-options-row">
             <label class="checkbox-label">
@@ -184,6 +194,7 @@ const ventiAvatar = `${baseUrl}avatar_venti.png`
 const syncConfig = reactive(webdav.getConfig())
 const testing = ref(false)
 const syncing = ref(false)
+const showPassword = ref(false)
 
 watch(
   () => props.show,
@@ -492,6 +503,36 @@ function handleClearClick() {
 
 .webdav-input:focus {
   border-color: #f3d882;
+}
+
+.password-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.password-input-wrap .webdav-input {
+  width: 100%;
+  padding-right: 32px;
+}
+
+.toggle-eye-btn {
+  position: absolute;
+  right: 6px;
+  background: transparent;
+  border: none;
+  color: #9ab2d5;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  transition: color 0.2s;
+}
+
+.toggle-eye-btn:hover {
+  color: #f3d882;
 }
 
 .sync-options-row {
