@@ -99,17 +99,28 @@ body::before {
 .app-container {
   position: relative;
   z-index: 1;
-  max-width: 440px;
+  max-width: 480px;
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0 auto;
   padding-top: max(12px, env(safe-area-inset-top));
-  padding-bottom: max(26px, env(safe-area-inset-bottom));
+  padding-bottom: max(78px, env(safe-area-inset-bottom));
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right));
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  transition: max-width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* 桌面端宽屏仪表盘布局适配 */
+@media (min-width: 1024px) {
+  .app-container.dashboard-mode {
+    max-width: 1080px;
+    padding-left: 28px;
+    padding-right: 28px;
+    padding-bottom: 32px;
+  }
 }
 
 /* 顶部通知 Toast */

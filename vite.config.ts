@@ -11,9 +11,8 @@ export default defineConfig({
       '/api/dav': {
         target: 'https://dav.jianguoyun.com/dav',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/dav/, '')
+        rewrite: (path: string) => path.replace(/^\/api\/dav/, '')
       }
     }
   }
 })
-

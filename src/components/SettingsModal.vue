@@ -3,15 +3,20 @@
     <div class="modal-card">
       <div class="modal-header">
         <div class="title-box">
-          <span class="star-icon">✦</span>
-          <span class="modal-title">设置与角色管理</span>
+          <AppIcon name="settings" :size="16" />
+          <span class="modal-title">系统设置与偏好</span>
         </div>
-        <button class="close-btn" @click="$emit('close')">×</button>
+        <button class="close-btn" @click="$emit('close')">
+          <AppIcon name="x" :size="18" />
+        </button>
       </div>
 
       <div class="modal-body">
         <!-- 1. 角色立绘切换 -->
-        <div class="section-title">✨ 选择角色立绘</div>
+        <div class="section-title">
+          <AppIcon name="user" :size="14" />
+          <span>角色立绘与主题</span>
+        </div>
         <div class="char-options">
           <div
             class="char-item"
@@ -39,7 +44,9 @@
           <label class="char-item upload-box" :class="{ active: currentType === 'custom' }">
             <input type="file" accept="image/*" class="file-input" @change="handleFileUpload" />
             <div class="char-avatar-box upload-avatar">
-              <span v-if="!customImg" class="upload-icon">📁</span>
+              <span v-if="!customImg" class="upload-icon">
+                <AppIcon name="plus" :size="18" />
+              </span>
               <img v-else :src="customImg" alt="自定义" class="char-thumb" draggable="false" />
             </div>
             <span class="char-name">自定义立绘</span>
@@ -48,7 +55,8 @@
 
         <!-- 2. 坚果云 WebDAV 云同步 -->
         <div class="section-title" style="margin-top: 18px;">
-          ☁️ 坚果云 WebDAV 跨端同步
+          <AppIcon name="cloud" :size="14" />
+          <span>坚果云 WebDAV 跨端同步</span>
           <span v-if="syncConfig.lastSyncTime" class="sync-time-badge">
             上次: {{ syncConfig.lastSyncTime }}
           </span>
@@ -92,77 +100,99 @@
             :disabled="syncing"
             @click="handleTriggerSync"
           >
-            <span class="sync-icon" :class="{ rotating: syncing }">🔄</span>
-            {{ syncing ? '正在双向合并同步中...' : '立即与坚果云同步' }}
+            <span class="sync-icon" :class="{ rotating: syncing }">
+              <AppIcon name="refresh" :size="14" />
+            </span>
+            <span>{{ syncing ? '正在双向合并同步中...' : '立即与坚果云同步' }}</span>
           </button>
         </div>
 
-        <!-- 3. 手机安装与全屏指南 -->
-        <div class="section-title" style="margin-top: 18px;">📱 移动端全屏体验</div>
+        <!-- 3. 手机安装指南 -->
+        <div class="section-title" style="margin-top: 18px;">
+          <AppIcon name="desktop" :size="14" />
+          <span>移动端与全屏安装</span>
+        </div>
         <button class="action-btn install-guide-btn" @click="$emit('open-install-guide')">
-          📲 添加到桌面 (彻底隐藏浏览器导航栏)
+          添加到桌面 (沉浸全屏运行)
         </button>
 
         <!-- 4. 本地数据备份与恢复 -->
-        <div class="section-title" style="margin-top: 18px;">💾 数据备份与恢复</div>
+        <div class="section-title" style="margin-top: 18px;">
+          <AppIcon name="sparkles" :size="14" />
+          <span>数据备份与管理</span>
+        </div>
         <div class="btn-group">
           <button class="action-btn" @click="$emit('export')">
-            📤 导出备份 (JSON)
+            导出备份 (JSON)
           </button>
           <label class="action-btn upload-btn">
-            📥 导入备份 (JSON)
+            导入备份 (JSON)
             <input type="file" accept=".json" class="file-input" @change="handleImportFile" />
           </label>
         </div>
 
-        <!-- 3. 清空数据 -->
-        <div class="section-title danger-title" style="margin-top: 18px;">⚠️ 危险区域</div>
+        <!-- 5. 危险区域 -->
+        <div class="section-title danger-title" style="margin-top: 18px;">
+          <AppIcon name="trash" :size="14" />
+          <span>危险操作</span>
+        </div>
         <button class="action-btn danger-btn" @click="handleClearClick">
-          🗑️ 清空所有打卡数据
+          重置并清空所有本地数据
         </button>
       </div>
     </div>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref, reactive, watch } from 'vue'
-import { webdav } from '../utils/webdav.js'
+import { webdav } from '../utils/webdav'
+import type { CharacterType } from '../types'
+import AppIcon from './AppIcon.vue'
 
-const props = defineProps({
-  show: { type: Boolean, default: false },
-  currentType: { type: String, default: 'aether' },
-  customImg: { type: String, default: '' },
-  currentTitle: { type: String, default: '旅行者' }
-})
+const props = withDefaults(
+  defineProps<{
+    show?: boolean
+    currentType?: CharacterType
+    customImg?: string
+    currentTitle?: string
+  }>(),
+  {
+    show: false,
+    currentType: 'venti',
+    customImg: '',
+    currentTitle: '温迪'
+  }
+)
 
-const emit = defineEmits([
-  'close',
-  'select-char',
-  'upload-char',
-  'export',
-  'import',
-  'clear',
-  'open-install-guide',
-  'trigger-sync',
-  'toast'
-])
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'select-char', payload: { type: CharacterType; title: string }): void
+  (e: 'upload-char', dataUrl: string): void
+  (e: 'export'): void
+  (e: 'import', file: File): void
+  (e: 'clear'): void
+  (e: 'open-install-guide'): void
+  (e: 'trigger-sync', callback: (success: boolean, message?: string) => void): void
+  (e: 'toast', message: string): void
+}>()
 
 const baseUrl = import.meta.env.BASE_URL || './'
 const aetherAvatar = `${baseUrl}avatar_aether.png`
 const ventiAvatar = `${baseUrl}avatar_venti.png`
 
-// WebDAV 配置状态
 const syncConfig = reactive(webdav.getConfig())
 const testing = ref(false)
 const syncing = ref(false)
 
-// 弹窗打开时刷新配置
-watch(() => props.show, (newVal) => {
-  if (newVal) {
-    Object.assign(syncConfig, webdav.getConfig())
+watch(
+  () => props.show,
+  (newVal) => {
+    if (newVal) {
+      Object.assign(syncConfig, webdav.getConfig())
+    }
   }
-})
+)
 
 function handleSaveWebdavConfig() {
   webdav.saveConfig(syncConfig)
@@ -183,7 +213,7 @@ async function handleTriggerSync() {
   handleSaveWebdavConfig()
   syncing.value = true
   try {
-    emit('trigger-sync', (success, message) => {
+    emit('trigger-sync', (success: boolean, message?: string) => {
       syncing.value = false
       if (success) {
         Object.assign(syncConfig, webdav.getConfig())
@@ -195,29 +225,33 @@ async function handleTriggerSync() {
   }
 }
 
-function selectChar(type, title) {
+function selectChar(type: CharacterType, title: string) {
   emit('select-char', { type, title })
 }
 
-function handleFileUpload(e) {
-  const file = e.target.files?.[0]
+function handleFileUpload(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
   if (!file) return
   const reader = new FileReader()
   reader.onload = (event) => {
-    emit('upload-char', event.target.result)
+    if (event.target?.result) {
+      emit('upload-char', event.target.result as string)
+    }
   }
   reader.readAsDataURL(file)
 }
 
-function handleImportFile(e) {
-  const file = e.target.files?.[0]
+function handleImportFile(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
   if (file) {
     emit('import', file)
   }
 }
 
 function handleClearClick() {
-  if (confirm('确认清空所有打卡记录与经验吗？此操作不可撤销！')) {
+  if (window.confirm('确认清空所有打卡记录与待办任务吗？此操作不可撤销！')) {
     emit('clear')
   }
 }
@@ -226,39 +260,27 @@ function handleClearClick() {
 <style scoped>
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.65);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
   backdrop-filter: blur(8px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 100;
+  z-index: 999;
   padding: 16px;
 }
 
 .modal-card {
   width: 100%;
-  max-width: 380px;
+  max-width: 400px;
   background: #141b2d;
   border: 1px solid rgba(243, 216, 130, 0.35);
   border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
   overflow: hidden;
-  animation: modalEnter 0.25s ease-out;
-}
-
-@keyframes modalEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-header {
@@ -273,12 +295,8 @@ function handleClearClick() {
 .title-box {
   display: flex;
   align-items: center;
-  gap: 6px;
-}
-
-.star-icon {
-  color: #f3d882;
-  font-size: 14px;
+  gap: 8px;
+  color: #fff0bd;
 }
 
 .modal-title {
@@ -291,10 +309,10 @@ function handleClearClick() {
   background: none;
   border: none;
   color: #8392af;
-  font-size: 22px;
   cursor: pointer;
-  line-height: 1;
-  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .close-btn:hover {
@@ -303,9 +321,13 @@ function handleClearClick() {
 
 .modal-body {
   padding: 16px 18px 20px;
+  overflow-y: auto;
 }
 
 .section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 600;
   color: #eed588;
@@ -361,7 +383,7 @@ function handleClearClick() {
 }
 
 .upload-icon {
-  font-size: 20px;
+  color: #f3d882;
 }
 
 .char-name {
@@ -384,6 +406,7 @@ function handleClearClick() {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   padding: 9px 12px;
   font-size: 12px;
   font-weight: 500;
@@ -407,13 +430,6 @@ function handleClearClick() {
   border-color: rgba(243, 216, 130, 0.5);
   color: #fff0bd;
   font-weight: 600;
-  margin-bottom: 4px;
-}
-
-.install-guide-btn:hover {
-  background: linear-gradient(135deg, rgba(243, 216, 130, 0.35) 0%, rgba(200, 160, 60, 0.45) 100%);
-  border-color: #f3d882;
-  box-shadow: 0 0 12px rgba(243, 216, 130, 0.35);
 }
 
 .danger-title {
@@ -432,7 +448,6 @@ function handleClearClick() {
   border-color: rgba(239, 68, 68, 0.7);
 }
 
-/* 坚果云 WebDAV 专属面板 */
 .sync-time-badge {
   font-size: 10px;
   color: #94a3b8;
@@ -531,8 +546,9 @@ function handleClearClick() {
 }
 
 .sync-icon {
-  display: inline-block;
-  margin-right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sync-icon.rotating {
@@ -540,8 +556,6 @@ function handleClearClick() {
 }
 
 @keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
+  100% { transform: rotate(360deg); }
 }
 </style>

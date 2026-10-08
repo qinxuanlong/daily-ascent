@@ -104,18 +104,27 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 
-defineProps({
-  show: { type: Boolean, default: false },
-  hasInstallPrompt: { type: Boolean, default: false }
-})
+withDefaults(
+  defineProps<{
+    show?: boolean
+    hasInstallPrompt?: boolean
+  }>(),
+  {
+    show: false,
+    hasInstallPrompt: false
+  }
+)
 
-defineEmits(['close', 'trigger-install'])
+defineEmits<{
+  (e: 'close'): void
+  (e: 'trigger-install'): void
+}>()
 
 // 自动检测系统，默认激活对应标签
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent)
 const currentTab = ref(isIOS ? 'ios' : 'android')
 </script>
 

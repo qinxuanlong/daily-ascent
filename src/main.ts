@@ -8,7 +8,7 @@ createApp(App).mount('#app')
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     const swPath = `${import.meta.env.BASE_URL || './'}sw.js`
-    navigator.serviceWorker.register(swPath).catch((err) => {
+    navigator.serviceWorker.register(swPath).catch((err: unknown) => {
       console.warn('ServiceWorker 注册失败:', err)
     })
   })

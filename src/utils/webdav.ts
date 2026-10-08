@@ -1,24 +1,40 @@
 /**
- * 坚果云 WebDAV 同步服务模块
- * 负责本地打卡数据与坚果云云端 (/daily-ascent/data.json) 的自动双向合并与持久化
+ * 坚果云 WebDAV 同步服务模块 (TypeScript 强类型)
+ * 负责本地打卡及待办数据与坚果云云端 (/daily-ascent/data.json) 的自动双向合并与持久化
  */
+import type { AppDataState, CheckInLog, TodoItem } from '../types'
 
 const WEBDAV_STORAGE_KEY = 'daily-ascent-webdav-config'
 
-// 默认坚果云配置
-export const defaultWebdavConfig = {
-  enabled: true, // 是否开启云同步
-  username: '', // 坚果云账号（由用户本地存储保管）
-  password: '', // 坚果云应用授权密码（由用户本地存储保管）
-  serverUrl: 'https://dav.jianguoyun.com/dav/', // WebDAV 根地址
-  appDir: 'daily-ascent', // 云端子目录
-  autoSync: true, // 打卡后是否自动静默同步
-  lastSyncTime: '' // 最近一次同步时间
+export interface WebDavStoredConfig {
+  enabled: boolean
+  username: string
+  password: string
+  serverUrl: string
+  appDir: string
+  autoSync: boolean
+  lastSyncTime: string
+}
+
+export const defaultWebdavConfig: WebDavStoredConfig = {
+  enabled: true,
+  username: '',
+  password: '',
+  serverUrl: 'https://dav.jianguoyun.com/dav/',
+  appDir: 'daily-ascent',
+  autoSync: true,
+  lastSyncTime: ''
+}
+
+export interface SyncResponse {
+  success: boolean
+  message: string
+  data?: AppDataState
 }
 
 export const webdav = {
   // 获取配置
-  getConfig() {
+  getConfig(): WebDavStoredConfig {
     try {
       const raw = localStorage.getItem(WEBDAV_STORAGE_KEY)
       if (!raw) return { ...defaultWebdavConfig }
@@ -29,7 +45,7 @@ export const webdav = {
   },
 
   // 保存配置
-  saveConfig(config) {
+  saveConfig(config: WebDavStoredConfig): void {
     try {
       localStorage.setItem(WEBDAV_STORAGE_KEY, JSON.stringify(config))
     } catch (e) {
@@ -38,7 +54,7 @@ export const webdav = {
   },
 
   // 计算请求基础 URL (开发环境下自动通过 Vite 代理绕过 CORS)
-  getBaseUrl() {
+  getBaseUrl(): string {
     const cfg = this.getConfig()
     if (import.meta.env.DEV) {
       return '/api/dav/'
@@ -47,7 +63,7 @@ export const webdav = {
   },
 
   // 获取云端文件与目录路径
-  getUrls() {
+  getUrls(): { dirUrl: string; fileUrl: string } {
     const base = this.getBaseUrl()
     const cfg = this.getConfig()
     const dir = cfg.appDir.replace(/^\/|\/$/g, '')
@@ -57,17 +73,17 @@ export const webdav = {
   },
 
   // 构造 Basic Auth 授权头
-  getHeaders() {
+  getHeaders(): Record<string, string> {
     const cfg = this.getConfig()
     const credentials = btoa(unescape(encodeURIComponent(`${cfg.username}:${cfg.password}`)))
     return {
-      'Authorization': `Basic ${credentials}`,
+      Authorization: `Basic ${credentials}`,
       'Content-Type': 'application/json; charset=utf-8'
     }
   },
 
   // 1. 测试连接并确保云端目录存在
-  async testConnection() {
+  async testConnection(): Promise<{ success: boolean; message: string }> {
     const { dirUrl } = this.getUrls()
     const headers = this.getHeaders()
 
@@ -86,7 +102,7 @@ export const webdav = {
       } else {
         return { success: false, message: `连接异常 (HTTP ${res.status})` }
       }
-    } catch (e) {
+    } catch {
       return {
         success: false,
         message: '网络连接失败，若在浏览器生产静态页面请确认是否支持跨域/代理'
@@ -95,7 +111,7 @@ export const webdav = {
   },
 
   // 2. 从坚果云拉取数据
-  async fetchCloudData() {
+  async fetchCloudData(): Promise<AppDataState | null> {
     const { fileUrl } = this.getUrls()
     const headers = this.getHeaders()
 
@@ -106,9 +122,8 @@ export const webdav = {
       })
 
       if (res.status === 200) {
-        return await res.json()
+        return (await res.json()) as AppDataState
       } else if (res.status === 404) {
-        // 云端尚无备份文件
         return null
       }
       return null
@@ -119,8 +134,7 @@ export const webdav = {
   },
 
   // 3. 上传数据到坚果云
-  async uploadData(data) {
-    // 确保云端目录存在
+  async uploadData(data: AppDataState): Promise<boolean> {
     await this.testConnection()
 
     const { fileUrl } = this.getUrls()
@@ -128,54 +142,74 @@ export const webdav = {
 
     const payload = {
       ...data,
-      version: 1,
+      version: 2,
       last_synced_at: new Date().toISOString()
     }
 
-    const res = await fetch(fileUrl, {
-      method: 'PUT',
-      headers,
-      body: JSON.stringify(payload, null, 2)
-    })
+    try {
+      const res = await fetch(fileUrl, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload, null, 2)
+      })
 
-    if (res.ok || res.status === 201 || res.status === 204) {
-      const cfg = this.getConfig()
-      cfg.lastSyncTime = new Date().toLocaleString('zh-CN', { hour12: false })
-      this.saveConfig(cfg)
-      return true
+      if (res.ok || res.status === 201 || res.status === 204) {
+        const cfg = this.getConfig()
+        cfg.lastSyncTime = new Date().toLocaleString('zh-CN', { hour12: false })
+        this.saveConfig(cfg)
+        return true
+      }
+      return false
+    } catch {
+      return false
     }
-    return false
   },
 
   // 4. 双向智能合并（本地与云端）
-  merge(localData, cloudData) {
+  merge(localData: AppDataState, cloudData: AppDataState | null): AppDataState {
     if (!cloudData) return localData
 
     // 合并历史流水 logs（按 id 去重）
-    const logMap = new Map()
+    const logMap = new Map<string, CheckInLog>()
 
-    // 优先加载云端记录
     if (Array.isArray(cloudData.logs)) {
-      cloudData.logs.forEach(item => {
+      cloudData.logs.forEach((item) => {
         if (item && item.id) logMap.set(String(item.id), item)
       })
     }
 
-    // 本地记录合并（同 ID 本地较新则优先）
     if (Array.isArray(localData.logs)) {
-      localData.logs.forEach(item => {
+      localData.logs.forEach((item) => {
         if (item && item.id) logMap.set(String(item.id), item)
       })
     }
 
-    // 重新按打卡日期+时间倒序排列
     const mergedLogs = Array.from(logMap.values()).sort((a, b) => {
       const timeA = `${a.date} ${a.time || ''}`
       const timeB = `${b.date} ${b.time || ''}`
       return timeB.localeCompare(timeA)
     })
 
-    // 根据打卡总次数计算经验（保底不低于本地或云端原值）
+    // 合并待办项 todos (按 id 去重，采用 updatedAt 较新者优先)
+    const todoMap = new Map<string, TodoItem>()
+    if (Array.isArray(cloudData.todos)) {
+      cloudData.todos.forEach((item) => {
+        if (item && item.id) todoMap.set(String(item.id), item)
+      })
+    }
+    if (Array.isArray(localData.todos)) {
+      localData.todos.forEach((item) => {
+        if (item && item.id) {
+          const existing = todoMap.get(String(item.id))
+          if (!existing || (item.updatedAt || 0) >= (existing.updatedAt || 0)) {
+            todoMap.set(String(item.id), item)
+          }
+        }
+      })
+    }
+    const mergedTodos = Array.from(todoMap.values()).sort((a, b) => a.order - b.order)
+
+    // 经验值保底
     const calculatedExp = mergedLogs.reduce((acc, cur) => acc + (cur.exp || 50), 0)
     const finalExp = Math.max(localData.exp || 0, cloudData.exp || 0, calculatedExp)
 
@@ -186,25 +220,22 @@ export const webdav = {
       characterTitle: localData.characterTitle || cloudData.characterTitle || '温迪',
       characterCustomImg: localData.characterCustomImg || cloudData.characterCustomImg || '',
       maxStreak: Math.max(localData.maxStreak || 0, cloudData.maxStreak || 0),
-      logs: mergedLogs
+      todos: mergedTodos,
+      logs: mergedLogs,
+      lastActiveDate: localData.lastActiveDate || cloudData.lastActiveDate || ''
     }
   },
 
   // 5. 执行一次完整的双向同步
-  async sync(localData) {
+  async sync(localData: AppDataState): Promise<SyncResponse> {
     const cfg = this.getConfig()
     if (!cfg.enabled || !cfg.username || !cfg.password) {
       return { success: false, message: '请先配置坚果云账号与应用密码' }
     }
 
     try {
-      // 第一步：拉取云端
       const cloudData = await this.fetchCloudData()
-
-      // 第二步：合并数据
       const mergedData = this.merge(localData, cloudData)
-
-      // 第三步：上传最新合并数据到坚果云
       const uploaded = await this.uploadData(mergedData)
 
       if (uploaded) {
@@ -216,8 +247,9 @@ export const webdav = {
       } else {
         return { success: false, message: '上传到坚果云失败，请检查网络或授权' }
       }
-    } catch (e) {
-      return { success: false, message: `同步异常: ${e.message || e}` }
+    } catch (e: unknown) {
+      const err = e as Error
+      return { success: false, message: `同步异常: ${err?.message || String(e)}` }
     }
   }
 }
